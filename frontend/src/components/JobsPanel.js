@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Card, Row, Col, Statistic, List, Tag, Button, Space, Typography, Spin, Select, Input, Drawer, Descriptions } from 'antd';
+import { Card, Row, Col, Statistic, List, Tag, Button, Space, Typography, Spin, Select, Input, Drawer, Descriptions, DatePicker } from 'antd';
 import { audioAPI } from '../services/api';
 
 const statusColor = (s) => ({
@@ -23,6 +23,7 @@ export default function JobsPanel() {
   const [userId, setUserId] = useState('');
   const [sortBy, setSortBy] = useState('created_at');
   const [sortOrder, setSortOrder] = useState('desc');
+  const [dateRange, setDateRange] = useState(null);
 
   // detail drawer
   const [detailOpen, setDetailOpen] = useState(false);
@@ -45,6 +46,11 @@ export default function JobsPanel() {
       const params = { limit: 20, cursor: cur, sort_by: sortBy, order: sortOrder };
       if (status) params.status = status;
       if (userId && userId.trim()) params.user_id = userId.trim();
+      if (dateRange && Array.isArray(dateRange)) {
+        const [start, end] = dateRange;
+        if (start) params.created_after = start.toDate().toISOString();
+        if (end) params.created_before = end.toDate().toISOString();
+      }
       const res = await audioAPI.listJobs(params);
       setItems((prev) => cur ? [...prev, ...res.items] : res.items);
       setCursor(res.next_cursor || null);
@@ -54,7 +60,7 @@ export default function JobsPanel() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [status, userId]);
+  }, [status, userId, sortBy, sortOrder, dateRange]);
 
   useEffect(() => {
     fetchStats();
@@ -104,6 +110,13 @@ export default function JobsPanel() {
             onChange={(e) => setUserId(e.target.value)}
             allowClear
           />
+          <DatePicker.RangePicker
+            allowClear
+            placeholder={["创建起始时间", "创建结束时间"]}
+            value={dateRange}
+            onChange={(vals) => setDateRange(vals)}
+            showTime
+          />
           <Select
             value={sortBy}
             onChange={(v) => { setSortBy(v); setCursor(null); fetchList(null); }}
@@ -123,7 +136,7 @@ export default function JobsPanel() {
             ]}
           />
           <Button type="primary" onClick={() => { setCursor(null); fetchList(null); }}>查询</Button>
-          <Button onClick={() => { setStatus(undefined); setUserId(''); setSortBy('created_at'); setSortOrder('desc'); setCursor(null); fetchList(null); }}>重置</Button>
+          <Button onClick={() => { setStatus(undefined); setUserId(''); setSortBy('created_at'); setSortOrder('desc'); setDateRange(null); setCursor(null); fetchList(null); }}>重置</Button>
         </Space>
       }>
         <List
