@@ -1,0 +1,15 @@
+celery[redis]
+redis
+python-dotenv
+sqlalchemy
+psycopg2-binary
+numpy
+scipy
+librosa
+pyloudnorm
+soundfile
+resampy
+pyrubberband
+pedalboard
+boto3
+requests

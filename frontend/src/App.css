@@ -1,0 +1,80 @@
+.app-layout {
+  min-height: 100vh;
+}
+
+.app-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 0 24px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  color: white;
+}
+
+.header-subtitle {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+}
+
+.app-content {
+  padding: 24px;
+  background: #f5f5f5;
+}
+
+.content-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  overflow: hidden;
+}
+
+.main-tabs {
+  padding: 24px;
+}
+
+.main-tabs .ant-tabs-nav {
+  margin-bottom: 32px;
+}
+
+.main-tabs .ant-tabs-tab {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .app-content {
+    padding: 12px;
+  }
+  
+  .content-container {
+    border-radius: 8px;
+  }
+  
+  .main-tabs {
+    padding: 16px;
+  }
+  
+  .header-content {
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
+  }
+  
+  .header-subtitle {
+    font-size: 12px;
+  }
+}

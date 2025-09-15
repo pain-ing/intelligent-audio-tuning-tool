@@ -1,0 +1,73 @@
+# ----------------------
+# Global
+# ----------------------
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+.tmp/
+*.swp
+*.swo
+
+# Editors/IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# Env & secrets
+.env
+.env.*
+.env.local
+*.env
+*.key
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.venv/
+.venv*/
+venv/
+.build/
+.eggs/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.dist/
+
+# Databases & caches
+*.db
+*.sqlite
+*.sqlite3
+
+# Node / Frontend
+node_modules/
+dist/
+build/
+.cache/
+.npm/
+.yarn/
+.pnpm-store/
+coverage/
+
+# Generated assets
+*.map
+
+# OS specific
+ehthumbs.db
+Icon?
+
+# Docker/containers (local)
+**/.docker/
+**/.devcontainer/
+
+# Misc
+*.bak
+*.old
+~$*
+
