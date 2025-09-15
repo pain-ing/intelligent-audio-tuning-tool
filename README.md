@@ -45,6 +45,16 @@ curl -X POST "http://localhost:8080/jobs" \
 curl "http://localhost:8080/jobs/{job_id}"
 ```
 
+### 新增接口
+
+- 列表（Keyset 分页）：
+  - GET /jobs?user_id=<uuid>&status=<STATUS>&limit=20&cursor=<cursor>
+  - 返回：{ items: [...], next_cursor }
+- 状态统计（短 TTL 缓存）：
+  - GET /jobs/stats?user_id=<uuid>
+  - 返回：{ PENDING, ANALYZING, INVERTING, RENDERING, COMPLETED, FAILED }
+
+
 ## 服务架构
 
 - **API (Port 8080)**: FastAPI 后端服务
@@ -106,6 +116,12 @@ make shell-worker  # 进入 Worker 容器
 5. 添加前端界面
 6. 性能优化与监控
 
+- ENABLE_CACHE：启用 Redis 缓存（特征/渲染结果/统计），默认 true
+- RENDER_MAX_WORKERS：渲染分块并行度（默认 1，建议 1～4）
+- METRICS_LOG_DIR：Worker 指标日志目录，默认 /tmp/metrics
+- OMP_NUM_THREADS / OPENBLAS_NUM_THREADS / MKL_NUM_THREADS / NUMEXPR_NUM_THREADS：限制数值库线程，避免与多进程叠加争抢
+
+
 ## 环境变量
 
 参见 .env.example，关键变量如下：
@@ -153,6 +169,15 @@ docker compose -f deploy/docker-compose.yml up -d
 
 # 查看日志
 docker compose -f deploy/docker-compose.yml logs -f --tail=200
+
+### 指标导出（Worker）
+
+从 JSONL 指标日志导出 CSV/JSON 与汇总：
+```bash
+python worker/scripts/export_metrics.py --log-dir /tmp/metrics --out metrics_export
+# 输出：metrics_export.csv / metrics_export.json / metrics_export.summary.json
+```
+
 ```
 
 ## 测试
