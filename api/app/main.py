@@ -227,13 +227,16 @@ class JobListResponse(BaseModel):
     items: list[JobItem]
     next_cursor: Optional[str] = None
 
-def _encode_cursor(created_at: datetime, id_str: str) -> str:
-    payload = {"created_at": created_at.isoformat(), "id": id_str}
+def _encode_cursor(sort_by: str, order: str, ts: datetime, id_str: str) -> str:
+    payload = {"by": sort_by, "order": order, "ts": ts.isoformat(), "id": id_str}
     return base64.urlsafe_b64encode(json.dumps(payload).encode()).decode()
 
-def _decode_cursor(cursor: str) -> tuple[datetime, str]:
+def _decode_cursor(cursor: str) -> tuple[str, str, datetime, str]:
     data = json.loads(base64.urlsafe_b64decode(cursor.encode()).decode())
-    return datetime.fromisoformat(data["created_at"]), data["id"]
+    # Backward compatibility for old cursor {created_at, id}
+    if "by" not in data:
+        return "created_at", "desc", datetime.fromisoformat(data["created_at"]), data["id"]
+    return data["by"], data.get("order", "desc"), datetime.fromisoformat(data["ts"]), data["id"]
 
 @app.get("/jobs", response_model=JobListResponse)
 def list_jobs(
@@ -243,10 +246,15 @@ def list_jobs(
     cursor: Optional[str] = None,
     created_before: Optional[str] = None,
     created_after: Optional[str] = None,
+    sort_by: Literal["created_at", "updated_at"] = "created_at",
+    order: Literal["asc", "desc"] = "desc",
     db: Session = Depends(get_db),
 ):
-    """List jobs with keyset pagination ordered by created_at desc, id desc."""
+    """List jobs with keyset pagination ordered by configurable sort column and direction."""
     limit = max(1, min(limit, 100))
+
+    # pick sort column
+    col = Job.created_at if sort_by == "created_at" else Job.updated_at
 
     q = db.query(Job)
     if user_id:
@@ -257,7 +265,7 @@ def list_jobs(
     if status:
         q = q.filter(Job.status == status)
 
-    # explicit time range filters
+    # explicit time range filters (always on created_at for now)
     if created_after:
         try:
             ca = datetime.fromisoformat(created_after)
@@ -273,14 +281,25 @@ def list_jobs(
 
     if cursor:
         try:
-            created_after_c, last_id = _decode_cursor(cursor)
-            # keyset: (created_at < c) OR (created_at = c AND id < last_id)
-            q = q.filter(or_(Job.created_at < created_after_c, and_(Job.created_at == created_after_c, Job.id < UUID(last_id))))
+            by_c, order_c, ts_c, last_id = _decode_cursor(cursor)
+            if by_c != sort_by or (order_c or "desc") != order:
+                raise HTTPException(status_code=400, detail="cursor does not match sort params")
+            if order == "desc":
+                q = q.filter(or_(col < ts_c, and_(col == ts_c, Job.id < UUID(last_id))))
+            else:
+                q = q.filter(or_(col > ts_c, and_(col == ts_c, Job.id > UUID(last_id))))
+        except HTTPException:
+            raise
         except Exception:
             raise HTTPException(status_code=400, detail="invalid cursor")
 
-    q = q.order_by(Job.created_at.desc(), Job.id.desc()).limit(limit + 1)
-    rows = q.all()
+    # order by
+    if order == "desc":
+        q = q.order_by(col.desc(), Job.id.desc())
+    else:
+        q = q.order_by(col.asc(), Job.id.asc())
+
+    rows = q.limit(limit + 1).all()
 
     items = []
     for r in rows[:limit]:
@@ -299,7 +318,8 @@ def list_jobs(
     next_cursor = None
     if len(rows) > limit:
         last = rows[limit - 1]
-        next_cursor = _encode_cursor(last.created_at, str(last.id))
+        ts = getattr(last, sort_by)
+        next_cursor = _encode_cursor(sort_by, order, ts, str(last.id))
 
     return JobListResponse(items=items, next_cursor=next_cursor)
 

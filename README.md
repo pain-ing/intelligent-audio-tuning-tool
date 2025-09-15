@@ -48,8 +48,9 @@ curl "http://localhost:8080/jobs/{job_id}"
 ### 新增接口
 
 - 列表（Keyset 分页）：
-  - GET /jobs?user_id=<uuid>&status=<STATUS>&limit=20&cursor=<cursor>&created_after=<ISO8601>&created_before=<ISO8601>
+  - GET /jobs?user_id=<uuid>&status=<STATUS>&limit=20&cursor=<cursor>&created_after=<ISO8601>&created_before=<ISO8601>&sort_by=<created_at|updated_at>&order=<asc|desc>
   - 返回：{ items: [...], next_cursor }
+  - 说明：cursor 与排序字段/方向绑定；切换排序会重置 cursor
 - 状态统计（短 TTL 缓存）：
   - GET /jobs/stats?user_id=<uuid>
   - 返回：{ PENDING, ANALYZING, INVERTING, RENDERING, COMPLETED, FAILED }

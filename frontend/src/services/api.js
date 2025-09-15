@@ -102,8 +102,8 @@ export const audioAPI = {
     api.get(`/jobs/${jobId}`),
 
   // 列表（keyset 分页）
-  listJobs: ({ user_id, status, limit = 20, cursor } = {}) =>
-    api.get('/jobs', { params: { user_id, status, limit, cursor } }),
+  listJobs: ({ user_id, status, limit = 20, cursor, sort_by = 'created_at', order = 'desc' } = {}) =>
+    api.get('/jobs', { params: { user_id, status, limit, cursor, sort_by, order } }),
 
   // 状态统计（短 TTL 缓存）
   getJobStats: (user_id) =>

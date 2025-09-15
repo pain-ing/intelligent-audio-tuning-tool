@@ -21,6 +21,8 @@ export default function JobsPanel() {
   // filters
   const [status, setStatus] = useState(undefined);
   const [userId, setUserId] = useState('');
+  const [sortBy, setSortBy] = useState('created_at');
+  const [sortOrder, setSortOrder] = useState('desc');
 
   // detail drawer
   const [detailOpen, setDetailOpen] = useState(false);
@@ -40,7 +42,7 @@ export default function JobsPanel() {
   const fetchList = useCallback(async (cur) => {
     try {
       cur ? setLoadingMore(true) : setLoading(true);
-      const params = { limit: 20, cursor: cur };
+      const params = { limit: 20, cursor: cur, sort_by: sortBy, order: sortOrder };
       if (status) params.status = status;
       if (userId && userId.trim()) params.user_id = userId.trim();
       const res = await audioAPI.listJobs(params);
@@ -97,13 +99,31 @@ export default function JobsPanel() {
           />
           <Input
             placeholder="User ID (可选)"
-            style={{ width: 260 }}
+            style={{ width: 240 }}
             value={userId}
             onChange={(e) => setUserId(e.target.value)}
             allowClear
           />
+          <Select
+            value={sortBy}
+            onChange={(v) => { setSortBy(v); setCursor(null); fetchList(null); }}
+            style={{ width: 150 }}
+            options={[
+              { value: 'created_at', label: '按创建时间' },
+              { value: 'updated_at', label: '按更新时间' },
+            ]}
+          />
+          <Select
+            value={sortOrder}
+            onChange={(v) => { setSortOrder(v); setCursor(null); fetchList(null); }}
+            style={{ width: 120 }}
+            options={[
+              { value: 'desc', label: '倒序' },
+              { value: 'asc', label: '正序' },
+            ]}
+          />
           <Button type="primary" onClick={() => { setCursor(null); fetchList(null); }}>查询</Button>
-          <Button onClick={() => { setStatus(undefined); setUserId(''); setCursor(null); fetchList(null); }}>重置</Button>
+          <Button onClick={() => { setStatus(undefined); setUserId(''); setSortBy('created_at'); setSortOrder('desc'); setCursor(null); fetchList(null); }}>重置</Button>
         </Space>
       }>
         <List
