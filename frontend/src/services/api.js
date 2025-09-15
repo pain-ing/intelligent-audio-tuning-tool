@@ -106,8 +106,8 @@ export const audioAPI = {
     api.get('/jobs', { params: { user_id, status, limit, cursor, sort_by, order, created_after, created_before } }),
 
   // 状态统计（短 TTL 缓存）
-  getJobStats: (user_id) =>
-    api.get('/jobs/stats', { params: { user_id } }),
+  getJobStats: (params = {}) =>
+    api.get('/jobs/stats', { params }),
 
   // 重试任务
   retryJob: (jobId) =>

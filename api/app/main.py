@@ -242,6 +242,7 @@ class JobItem(BaseModel):
     created_at: datetime
     updated_at: datetime
     result_key: Optional[str] = None
+    download_url: Optional[str] = None
     error: Optional[str] = None
 
 class JobListResponse(BaseModel):
@@ -267,6 +268,8 @@ def list_jobs(
     cursor: Optional[str] = None,
     created_before: Optional[str] = None,
     created_after: Optional[str] = None,
+    updated_before: Optional[str] = None,
+    updated_after: Optional[str] = None,
     sort_by: Literal["created_at", "updated_at"] = "created_at",
     order: Literal["asc", "desc"] = "desc",
     db: Session = Depends(get_db),
@@ -286,7 +289,7 @@ def list_jobs(
     if status:
         q = q.filter(Job.status == status)
 
-    # explicit time range filters (always on created_at for now)
+    # explicit time range filters
     if created_after:
         try:
             ca = datetime.fromisoformat(created_after)
@@ -299,6 +302,18 @@ def list_jobs(
             q = q.filter(Job.created_at <= cb)
         except Exception:
             raise HTTPException(status_code=400, detail="invalid created_before")
+    if updated_after:
+        try:
+            ua = datetime.fromisoformat(updated_after)
+            q = q.filter(Job.updated_at >= ua)
+        except Exception:
+            raise HTTPException(status_code=400, detail="invalid updated_after")
+    if updated_before:
+        try:
+            ub = datetime.fromisoformat(updated_before)
+            q = q.filter(Job.updated_at <= ub)
+        except Exception:
+            raise HTTPException(status_code=400, detail="invalid updated_before")
 
     if cursor:
         try:
@@ -324,6 +339,12 @@ def list_jobs(
 
     items = []
     for r in rows[:limit]:
+        dl = None
+        if r.result_key:
+            try:
+                dl = storage_service.generate_download_url(r.result_key, expires_in=3600)
+            except Exception:
+                dl = f"/objects/{r.result_key}"
         items.append(JobItem(
             id=str(r.id),
             user_id=str(r.user_id),
@@ -333,6 +354,7 @@ def list_jobs(
             created_at=r.created_at,
             updated_at=r.updated_at,
             result_key=r.result_key,
+            download_url=dl,
             error=r.error,
         ))
 
@@ -345,11 +367,16 @@ def list_jobs(
     return JobListResponse(items=items, next_cursor=next_cursor)
 
 @app.get("/jobs/stats")
-def jobs_stats(user_id: Optional[str] = None, db: Session = Depends(get_db)):
-    """Quick counts by status, cached for ~20s in Redis."""
+def jobs_stats(
+    user_id: Optional[str] = None,
+    created_before: Optional[str] = None,
+    created_after: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """Quick counts by status, cached for ~20s in Redis. Supports created_at range filters."""
     try:
         from app.cache import cache_get, cache_set
-        cache_key = f"v1:{user_id or 'all'}"
+        cache_key = f"v1:{user_id or 'all'}:{created_after or '-'}:{created_before or '-'}"
         cached = cache_get("jobs_stats", cache_key)
         if cached:
             return cached
@@ -364,6 +391,18 @@ def jobs_stats(user_id: Optional[str] = None, db: Session = Depends(get_db)):
             q = q.filter(Job.user_id == UUID(user_id))
         except Exception:
             raise HTTPException(status_code=400, detail="invalid user_id")
+    if created_after:
+        try:
+            ca = datetime.fromisoformat(created_after)
+            q = q.filter(Job.created_at >= ca)
+        except Exception:
+            raise HTTPException(status_code=400, detail="invalid created_after")
+    if created_before:
+        try:
+            cb = datetime.fromisoformat(created_before)
+            q = q.filter(Job.created_at <= cb)
+        except Exception:
+            raise HTTPException(status_code=400, detail="invalid created_before")
     rows = q.group_by(Job.status).all()
     m = {s: 0 for s in statuses}
     for status, cnt in rows:

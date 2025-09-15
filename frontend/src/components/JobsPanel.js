@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Card, Row, Col, Statistic, List, Tag, Button, Space, Typography, Spin, Select, Input, Drawer, Descriptions, DatePicker } from 'antd';
+import { Card, Row, Col, Statistic, List, Tag, Button, Space, Typography, Spin, Select, Input, Drawer, Descriptions, DatePicker, Popconfirm } from 'antd';
 import { audioAPI } from '../services/api';
 
 const statusColor = (s) => ({
@@ -24,6 +24,8 @@ export default function JobsPanel() {
   const [sortBy, setSortBy] = useState('created_at');
   const [sortOrder, setSortOrder] = useState('desc');
   const [dateRange, setDateRange] = useState(null);
+  const [filterField, setFilterField] = useState('created_at');
+  const [statsRange, setStatsRange] = useState('all');
 
   // detail drawer
   const [detailOpen, setDetailOpen] = useState(false);
@@ -33,12 +35,18 @@ export default function JobsPanel() {
 
   const fetchStats = useCallback(async () => {
     try {
-      const res = await audioAPI.getJobStats();
+      const params = {};
+      if (statsRange === '24h') {
+        params.created_after = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+      } else if (statsRange === '7d') {
+        params.created_after = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+      }
+      const res = await audioAPI.getJobStats(params);
       setStats(res);
     } catch (e) {
       // ignore
     }
-  }, []);
+  }, [statsRange]);
 
   const fetchList = useCallback(async (cur) => {
     try {
@@ -48,8 +56,10 @@ export default function JobsPanel() {
       if (userId && userId.trim()) params.user_id = userId.trim();
       if (dateRange && Array.isArray(dateRange)) {
         const [start, end] = dateRange;
-        if (start) params.created_after = start.toDate().toISOString();
-        if (end) params.created_before = end.toDate().toISOString();
+        const afterKey = filterField === 'updated_at' ? 'updated_after' : 'created_after';
+        const beforeKey = filterField === 'updated_at' ? 'updated_before' : 'created_before';
+        if (start) params[afterKey] = start.toDate().toISOString();
+        if (end) params[beforeKey] = end.toDate().toISOString();
       }
       const res = await audioAPI.listJobs(params);
       setItems((prev) => cur ? [...prev, ...res.items] : res.items);
@@ -60,7 +70,7 @@ export default function JobsPanel() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [status, userId, sortBy, sortOrder, dateRange]);
+  }, [status, userId, sortBy, sortOrder, dateRange, filterField]);
 
   useEffect(() => {
     fetchStats();
@@ -71,7 +81,15 @@ export default function JobsPanel() {
 
   return (
     <Space direction="vertical" style={{ width: '100%' }} size="large">
-      <Card title="任务统计">
+      <Card title={<Space>任务统计
+        <Select size="small" value={statsRange} onChange={(v) => { setStatsRange(v); fetchStats(); }}
+          style={{ width: 120 }} options={[
+            { value: 'all', label: '全部' },
+            { value: '24h', label: '近24小时' },
+            { value: '7d', label: '近7天' },
+          ]}
+        />
+      </Space>}>
         {stats ? (
           <Row gutter={16}>
             {['PENDING','ANALYZING','INVERTING','RENDERING','COMPLETED','FAILED'].map((k) => (
@@ -109,6 +127,15 @@ export default function JobsPanel() {
             value={userId}
             onChange={(e) => setUserId(e.target.value)}
             allowClear
+          />
+          <Select
+            value={filterField}
+            onChange={(v) => { setFilterField(v); setCursor(null); }}
+            style={{ width: 180 }}
+            options={[
+              { value: 'created_at', label: '按创建时间过滤' },
+              { value: 'updated_at', label: '按更新时间过滤' },
+            ]}
           />
           <DatePicker.RangePicker
             allowClear
@@ -159,6 +186,10 @@ export default function JobsPanel() {
                 ...(item.status === 'COMPLETED' ? [
                   <Button key="download" size="small" type="link" onClick={async () => {
                     try {
+                      if (item.download_url) {
+                        window.open(item.download_url, '_blank');
+                        return;
+                      }
                       const d = await audioAPI.getJobStatus(item.id);
                       if (d.download_url) {
                         window.open(d.download_url, '_blank');
@@ -167,24 +198,28 @@ export default function JobsPanel() {
                   }}>下载</Button>
                 ] : []),
                 ...(item.status === 'FAILED' ? [
-                  <Button key="retry" size="small" type="primary" danger onClick={async () => {
+                  <Popconfirm key="retry-pop" title="确认重试该失败任务？" okText="重试" cancelText="取消" onConfirm={async () => {
                     try {
                       await audioAPI.retryJob(item.id);
                       setCursor(null);
                       await fetchList(null);
                       await fetchStats();
                     } catch (e) {}
-                  }}>重试</Button>
+                  }}>
+                    <Button size="small" type="primary" danger>重试</Button>
+                  </Popconfirm>
                 ] : []),
                 ...(['COMPLETED','FAILED','CANCELLED'].includes(item.status) ? [] : [
-                  <Button key="cancel" size="small" danger onClick={async () => {
+                  <Popconfirm key="cancel-pop" title="确认取消该任务？" okText="取消任务" cancelText="返回" onConfirm={async () => {
                     try {
                       await audioAPI.cancelJob(item.id);
                       setCursor(null);
                       await fetchList(null);
                       await fetchStats();
                     } catch (e) {}
-                  }}>取消</Button>
+                  }}>
+                    <Button size="small" danger>取消</Button>
+                  </Popconfirm>
                 ])
               ]}
             >
@@ -198,6 +233,12 @@ export default function JobsPanel() {
                     <Typography.Text type="secondary">User: {item.user_id}</Typography.Text>
                     <Typography.Text type="secondary">Mode: {item.mode} · Progress: {item.progress}%</Typography.Text>
                     <Typography.Text type="secondary">Created: {new Date(item.created_at).toLocaleString()}</Typography.Text>
+                    {item.status === 'FAILED' && item.error ? (
+                      <Typography.Paragraph type="danger" ellipsis={{ rows: 2 }} copyable>
+                        {item.error}
+                      </Typography.Paragraph>
+                    ) : null}
+
                   </Space>
                 }
               />
@@ -224,7 +265,11 @@ export default function JobsPanel() {
                 <Descriptions.Item label="mode">{detailData.mode}</Descriptions.Item>
                 <Descriptions.Item label="created_at">{detailData.created_at ? new Date(detailData.created_at).toLocaleString() : '-'}</Descriptions.Item>
                 <Descriptions.Item label="updated_at">{detailData.updated_at ? new Date(detailData.updated_at).toLocaleString() : '-'}</Descriptions.Item>
-                <Descriptions.Item label="error">{detailData.error || '-'}</Descriptions.Item>
+                <Descriptions.Item label="error">
+                  {detailData.error ? (
+                    <Typography.Paragraph copyable code>{detailData.error}</Typography.Paragraph>
+                  ) : '-' }
+                </Descriptions.Item>
                 <Descriptions.Item label="download_url">
                   {detailData.download_url ? (
                     <Typography.Link href={detailData.download_url} target="_blank" copyable>
