@@ -98,11 +98,19 @@ export const audioAPI = {
     api.post('/jobs', jobData),
 
   // 获取任务状态
-  getJobStatus: (jobId) => 
+  getJobStatus: (jobId) =>
     api.get(`/jobs/${jobId}`),
 
+  // 列表（keyset 分页）
+  listJobs: ({ user_id, status, limit = 20, cursor } = {}) =>
+    api.get('/jobs', { params: { user_id, status, limit, cursor } }),
+
+  // 状态统计（短 TTL 缓存）
+  getJobStats: (user_id) =>
+    api.get('/jobs/stats', { params: { user_id } }),
+
   // 重试任务
-  retryJob: (jobId) => 
+  retryJob: (jobId) =>
     api.post(`/jobs/${jobId}/retry`),
 
   // 预设管理

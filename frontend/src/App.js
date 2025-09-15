@@ -3,6 +3,7 @@ import { Layout, Typography, Tabs, message } from 'antd';
 import { SoundOutlined } from '@ant-design/icons';
 import AudioProcessor from './components/AudioProcessor';
 import PresetManager from './components/PresetManager';
+import JobsPanel from './components/JobsPanel';
 import './App.css';
 
 const { Header, Content } = Layout;
@@ -41,6 +42,11 @@ function App() {
             </TabPane>
             <TabPane tab="预设管理" key="presets">
               <PresetManager />
+            </TabPane>
+            <TabPane tab="任务列表" key="jobs">
+              <React.Suspense fallback={null}>
+                <JobsPanel />
+              </React.Suspense>
             </TabPane>
           </Tabs>
         </div>

@@ -95,36 +95,97 @@ def upload_file(local_path: str, key: str) -> str:
 def process_audio_job(self, job_id: str, mode: Literal["A", "B"], ref_key: str, tgt_key: str, opts: Dict = None):
     """Main audio processing task that orchestrates the pipeline."""
     logger.info(f"Starting job {job_id} with mode {mode}")
-    
+
+    # simple metrics logging helpers
+    import json, csv
+    from time import perf_counter
+
+    def _metrics_dir():
+        d = os.getenv("METRICS_LOG_DIR", "/tmp/metrics")
+        try:
+            os.makedirs(d, exist_ok=True)
+        except Exception:
+            pass
+        return d
+
+    def _record_metrics(payload: Dict):
+        try:
+            d = _metrics_dir()
+            # JSONL
+            with open(os.path.join(d, "processing_metrics.jsonl"), "a", encoding="utf-8") as f:
+                f.write(json.dumps(payload, ensure_ascii=False) + "\n")
+            # CSV
+            csv_path = os.path.join(d, "processing_metrics.csv")
+            write_header = not os.path.exists(csv_path)
+            with open(csv_path, "a", newline="", encoding="utf-8") as f:
+                w = csv.DictWriter(f, fieldnames=list(payload.keys()))
+                if write_header:
+                    w.writeheader()
+                w.writerow(payload)
+        except Exception:
+            pass
+
+    t0 = perf_counter()
+    analyze_dur = invert_dur = render_dur = 0.0
+    status = "FAILED"
+
     try:
         # Update job status to ANALYZING
         update_job_status(job_id, "ANALYZING", 10)
-        
+        t_a0 = perf_counter()
         # Step 1: Analyze features
         ref_features = analyze_features.delay(ref_key).get()
         tgt_features = analyze_features.delay(tgt_key).get()
-        
+        analyze_dur = perf_counter() - t_a0
+
         # Update job status to INVERTING
         update_job_status(job_id, "INVERTING", 40)
-        
+        t_i0 = perf_counter()
         # Step 2: Invert parameters
         style_params = invert_params.delay(ref_features, tgt_features, mode).get()
-        
+        invert_dur = perf_counter() - t_i0
+
         # Update job status to RENDERING
         update_job_status(job_id, "RENDERING", 70)
-        
+        t_r0 = perf_counter()
         # Step 3: Render audio
         result_key, metrics = render_audio.delay(tgt_key, style_params).get()
-        
+        render_dur = perf_counter() - t_r0
+
         # Update job status to COMPLETED
         update_job_status(job_id, "COMPLETED", 100, result_key=result_key, metrics=metrics)
-        
+        status = "COMPLETED"
+
+        total_dur = perf_counter() - t0
+        _record_metrics({
+            "job_id": job_id,
+            "status": status,
+            "mode": mode,
+            "analyze_s": round(analyze_dur, 3),
+            "invert_s": round(invert_dur, 3),
+            "render_s": round(render_dur, 3),
+            "total_s": round(total_dur, 3),
+            "timestamp": int(time.time())
+        })
+
         logger.info(f"Job {job_id} completed successfully")
         return {"status": "COMPLETED", "result_key": result_key, "metrics": metrics}
-        
+
     except Exception as e:
         logger.error(f"Job {job_id} failed: {str(e)}")
         update_job_status(job_id, "FAILED", error=str(e))
+        total_dur = perf_counter() - t0
+        _record_metrics({
+            "job_id": job_id,
+            "status": "FAILED",
+            "mode": mode,
+            "analyze_s": round(analyze_dur, 3),
+            "invert_s": round(invert_dur, 3),
+            "render_s": round(render_dur, 3),
+            "total_s": round(total_dur, 3),
+            "error": str(e),
+            "timestamp": int(time.time())
+        })
         raise
 
 @app.task
