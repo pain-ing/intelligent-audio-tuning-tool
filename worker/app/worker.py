@@ -99,6 +99,8 @@ def process_audio_job(self, job_id: str, mode: Literal["A", "B"], ref_key: str, 
     # simple metrics logging helpers
     import json, csv
     from time import perf_counter
+    from sqlalchemy import create_engine, text as sql_text
+    from sqlalchemy.orm import sessionmaker
 
     def _metrics_dir():
         d = os.getenv("METRICS_LOG_DIR", "/tmp/metrics")
@@ -125,11 +127,30 @@ def process_audio_job(self, job_id: str, mode: Literal["A", "B"], ref_key: str, 
         except Exception:
             pass
 
+    def _is_cancelled(job_id: str) -> bool:
+        try:
+            db_url = os.getenv("DATABASE_URL") or os.getenv("DB_URL", "postgresql://user:pass@localhost:5432/audio")
+            engine = create_engine(db_url, pool_pre_ping=True)
+            SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+            with SessionLocal() as db:
+                row = db.execute(sql_text("SELECT status FROM jobs WHERE id = :jid"), {"jid": job_id}).first()
+                return bool(row and row[0] == "CANCELLED")
+        except Exception:
+            return False
+
     t0 = perf_counter()
     analyze_dur = invert_dur = render_dur = 0.0
     status = "FAILED"
 
     try:
+        # early abort if cancelled
+        if _is_cancelled(job_id):
+            logger.info(f"Job {job_id} cancelled before start")
+            status = "CANCELLED"
+            total_dur = perf_counter() - t0
+            _record_metrics({"job_id": job_id, "status": status, "mode": mode, "total_s": round(total_dur,3), "timestamp": int(time.time())})
+            return {"status": status}
+
         # Update job status to ANALYZING
         update_job_status(job_id, "ANALYZING", 10)
         t_a0 = perf_counter()
@@ -138,6 +159,13 @@ def process_audio_job(self, job_id: str, mode: Literal["A", "B"], ref_key: str, 
         tgt_features = analyze_features.delay(tgt_key).get()
         analyze_dur = perf_counter() - t_a0
 
+        if _is_cancelled(job_id):
+            logger.info(f"Job {job_id} cancelled after analyzing")
+            status = "CANCELLED"
+            total_dur = perf_counter() - t0
+            _record_metrics({"job_id": job_id, "status": status, "mode": mode, "analyze_s": round(analyze_dur,3), "total_s": round(total_dur,3), "timestamp": int(time.time())})
+            return {"status": status}
+
         # Update job status to INVERTING
         update_job_status(job_id, "INVERTING", 40)
         t_i0 = perf_counter()
@@ -145,12 +173,26 @@ def process_audio_job(self, job_id: str, mode: Literal["A", "B"], ref_key: str, 
         style_params = invert_params.delay(ref_features, tgt_features, mode).get()
         invert_dur = perf_counter() - t_i0
 
+        if _is_cancelled(job_id):
+            logger.info(f"Job {job_id} cancelled after inverting")
+            status = "CANCELLED"
+            total_dur = perf_counter() - t0
+            _record_metrics({"job_id": job_id, "status": status, "mode": mode, "analyze_s": round(analyze_dur,3), "invert_s": round(invert_dur,3), "total_s": round(total_dur,3), "timestamp": int(time.time())})
+            return {"status": status}
+
         # Update job status to RENDERING
         update_job_status(job_id, "RENDERING", 70)
         t_r0 = perf_counter()
         # Step 3: Render audio
         result_key, metrics = render_audio.delay(tgt_key, style_params).get()
         render_dur = perf_counter() - t_r0
+
+        if _is_cancelled(job_id):
+            logger.info(f"Job {job_id} cancelled after rendering")
+            status = "CANCELLED"
+            total_dur = perf_counter() - t0
+            _record_metrics({"job_id": job_id, "status": status, "mode": mode, "analyze_s": round(analyze_dur,3), "invert_s": round(invert_dur,3), "render_s": round(render_dur,3), "total_s": round(total_dur,3), "timestamp": int(time.time())})
+            return {"status": status}
 
         # Update job status to COMPLETED
         update_job_status(job_id, "COMPLETED", 100, result_key=result_key, metrics=metrics)

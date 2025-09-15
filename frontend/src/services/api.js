@@ -113,6 +113,10 @@ export const audioAPI = {
   retryJob: (jobId) =>
     api.post(`/jobs/${jobId}/retry`),
 
+  // 取消任务
+  cancelJob: (jobId) =>
+    api.post(`/jobs/${jobId}/cancel`),
+
   // 预设管理
   getPresets: (params = {}) => 
     api.get('/presets', { params }),

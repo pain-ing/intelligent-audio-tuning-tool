@@ -56,6 +56,7 @@ curl "http://localhost:8080/jobs/{job_id}"
   - 返回：{ PENDING, ANALYZING, INVERTING, RENDERING, COMPLETED, FAILED }
 - 重试失败任务：
   - POST /jobs/{job_id}/retry（仅 FAILED 可重试）
+- POST /jobs/{job_id}/cancel（PENDING/ANALYZING/INVERTING/RENDERING 可取消）
 
 
 

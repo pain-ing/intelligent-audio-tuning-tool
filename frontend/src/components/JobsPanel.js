@@ -152,7 +152,17 @@ export default function JobsPanel() {
                       await fetchStats();
                     } catch (e) {}
                   }}>重试</Button>
-                ] : [])
+                ] : []),
+                ...(['COMPLETED','FAILED','CANCELLED'].includes(item.status) ? [] : [
+                  <Button key="cancel" size="small" danger onClick={async () => {
+                    try {
+                      await audioAPI.cancelJob(item.id);
+                      setCursor(null);
+                      await fetchList(null);
+                      await fetchStats();
+                    } catch (e) {}
+                  }}>取消</Button>
+                ])
               ]}
             >
               <List.Item.Meta

@@ -206,6 +206,18 @@ def retry_job(job_id: str, db: Session = Depends(get_db)):
     return {"job_id": str(job.id), "status": job.status}
 
 
+@app.post("/jobs/{job_id}/cancel")
+def cancel_job(job_id: str, db: Session = Depends(get_db)):
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.status in ("COMPLETED", "FAILED", "CANCELLED"):
+        raise HTTPException(status_code=400, detail="Job not cancellable in current state")
+    job.status = "CANCELLED"
+    job.error = job.error or "cancelled by user"
+    db.add(job)
+    db.commit()
+    return {"job_id": str(job.id), "status": job.status}
 
 from datetime import datetime
 import base64, json
