@@ -256,3 +256,35 @@ def list_jobs(
 
     return JobListResponse(items=items, next_cursor=next_cursor)
 
+@app.get("/jobs/stats")
+def jobs_stats(user_id: Optional[str] = None, db: Session = Depends(get_db)):
+    """Quick counts by status, cached for ~20s in Redis."""
+    try:
+        from app.cache import cache_get, cache_set
+        cache_key = f"v1:{user_id or 'all'}"
+        cached = cache_get("jobs_stats", cache_key)
+        if cached:
+            return cached
+    except Exception:
+        cached = None
+    # compute
+    statuses = ["PENDING","ANALYZING","INVERTING","RENDERING","COMPLETED","FAILED"]
+    from sqlalchemy import func as sa_func
+    q = db.query(Job.status, sa_func.count().label("cnt"))
+    if user_id:
+        try:
+            q = q.filter(Job.user_id == UUID(user_id))
+        except Exception:
+            raise HTTPException(status_code=400, detail="invalid user_id")
+    rows = q.group_by(Job.status).all()
+    m = {s: 0 for s in statuses}
+    for status, cnt in rows:
+        if status in m:
+            m[status] = int(cnt)
+    try:
+        cache_set("jobs_stats", cache_key, m, ttl_sec=20)
+    except Exception:
+        pass
+    return m
+
+

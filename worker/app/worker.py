@@ -206,14 +206,34 @@ def render_audio(in_key: str, style_params: Dict) -> tuple[str, Dict]:
         # 下载输入音频
         download_file(in_key, input_path)
 
+        # 结果缓存（基于输入内容哈希 + 参数哈希）
+        try:
+            from app.cache import cache_get, cache_set, make_file_hash
+            in_hash = make_file_hash(input_path)
+            import json, hashlib
+            params_hash = hashlib.md5(json.dumps(style_params, sort_keys=True).encode()).hexdigest()
+            cache_key = f"v1:{in_hash}:{params_hash}"
+            cached = cache_get("render", cache_key)
+            if cached and isinstance(cached, dict) and cached.get("out_key"):
+                logger.info("Render cache hit")
+                return cached["out_key"], cached.get("metrics", {})
+        except Exception:
+            cached = None
+
         # 使用真实的音频渲染
         metrics = renderer.render_audio(input_path, output_path, style_params)
 
-        # 生成输出 key
+        # 生成输出 key（可改为基于哈希的确定性 key，以便对象存储去重）
         out_key = f"processed/{uuid.uuid4().hex}.wav"
 
         # 上传结果文件
         upload_file(output_path, out_key)
+
+        # 写入缓存
+        try:
+            cache_set("render", cache_key, {"out_key": out_key, "metrics": metrics}, ttl_sec=7*24*3600)
+        except Exception:
+            pass
 
         logger.info(f"Audio rendering completed: {in_key} -> {out_key}")
         return out_key, metrics
