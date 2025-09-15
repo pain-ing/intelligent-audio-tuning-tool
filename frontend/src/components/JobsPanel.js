@@ -168,6 +168,9 @@ export default function JobsPanel() {
               <Descriptions column={1} bordered size="small">
                 <Descriptions.Item label="status">{detailData.status}</Descriptions.Item>
                 <Descriptions.Item label="progress">{detailData.progress}%</Descriptions.Item>
+                <Descriptions.Item label="mode">{detailData.mode}</Descriptions.Item>
+                <Descriptions.Item label="created_at">{detailData.created_at ? new Date(detailData.created_at).toLocaleString() : '-'}</Descriptions.Item>
+                <Descriptions.Item label="updated_at">{detailData.updated_at ? new Date(detailData.updated_at).toLocaleString() : '-'}</Descriptions.Item>
                 <Descriptions.Item label="error">{detailData.error || '-'}</Descriptions.Item>
                 <Descriptions.Item label="download_url">
                   {detailData.download_url ? (
@@ -176,8 +179,15 @@ export default function JobsPanel() {
                     </Typography.Link>
                   ) : '-' }
                 </Descriptions.Item>
-                <Descriptions.Item label="metrics">
-                  <pre style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(detailData.metrics || {}, null, 2)}</pre>
+                <Descriptions.Item label="durations (s)">
+                  {detailData.metrics ? (
+                    <Space size={16}>
+                      <span>analyze: {detailData.metrics.analyze_s ?? '-'}</span>
+                      <span>invert: {detailData.metrics.invert_s ?? '-'}</span>
+                      <span>render: {detailData.metrics.render_s ?? '-'}</span>
+                      <span>total: {detailData.metrics.total_s ?? '-'}</span>
+                    </Space>
+                  ) : '-' }
                 </Descriptions.Item>
               </Descriptions>
             ) : <Typography.Text type="secondary">无详情</Typography.Text>

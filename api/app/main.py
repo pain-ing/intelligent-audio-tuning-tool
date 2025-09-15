@@ -166,12 +166,18 @@ def get_job(job_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Job not found")
 
     resp = {
+        "id": str(job.id),
+        "user_id": str(job.user_id),
+        "mode": job.mode,
         "status": job.status,
         "progress": job.progress,
         "metrics": job.metrics or {},
+        "result_key": job.result_key,
         "download_url": f"https://example-object-store/{job.result_key}" if job.result_key else None,
         "viz_urls": None,
-        "error": job.error
+        "error": job.error,
+        "created_at": job.created_at,
+        "updated_at": job.updated_at,
     }
     return resp
 
