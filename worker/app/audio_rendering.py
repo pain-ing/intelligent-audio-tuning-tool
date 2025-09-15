@@ -288,53 +288,72 @@ class AudioRenderer:
     
     def process_in_chunks(self, audio: np.ndarray, style_params: Dict,
                          chunk_duration: float = None) -> np.ndarray:
-        """分块处理长音频（自适应内存优化版）"""
+        """分块处理长音频（自适应内存优化 + 可选并行）"""
         # 使用自适应分块大小，如果未指定则使用计算的值
         if chunk_duration is None:
             chunk_samples = self._adaptive_chunk_size
         else:
             chunk_samples = int(chunk_duration * self.sample_rate)
-        
+
         if audio.shape[1] <= chunk_samples:
             # 音频较短，直接处理
             return self.apply_style_params(audio, style_params)
-        
-        # 分块处理
-        processed_chunks = []
+
+        # 预切分块范围
         overlap_samples = int(0.1 * self.sample_rate)  # 100ms 重叠
-        
-        for start in range(0, audio.shape[1], chunk_samples - overlap_samples):
+        step = max(1, chunk_samples - overlap_samples)
+        ranges = []
+        for start in range(0, audio.shape[1], step):
             end = min(start + chunk_samples, audio.shape[1])
-            chunk = audio[:, start:end]
-            
-            # 处理块
-            processed_chunk = self.apply_style_params(chunk, style_params)
-            
-            # 处理重叠区域
-            if start > 0 and len(processed_chunks) > 0:
-                # 交叉淡化重叠区域
+            ranges.append((start, end))
+            if end == audio.shape[1]:
+                break
+
+        # 并发度（默认1 = 顺序执行）
+        try:
+            max_workers = int(os.getenv("RENDER_MAX_WORKERS", "1"))
+        except Exception:
+            max_workers = 1
+        max_workers = max(1, min(max_workers, 8))  # 安全上限
+
+        # 处理函数
+        def _process_range(rng):
+            s, e = rng
+            chunk = audio[:, s:e]
+            return s, e, self.apply_style_params(chunk, style_params)
+
+        # 并行或顺序处理
+        results = []
+        if max_workers > 1:
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+            with ThreadPoolExecutor(max_workers=max_workers) as ex:
+                futs = [ex.submit(_process_range, rng) for rng in ranges]
+                for fut in as_completed(futs):
+                    results.append(fut.result())
+            # 恢复时间顺序
+            results.sort(key=lambda x: x[0])
+        else:
+            for rng in ranges:
+                results.append(_process_range(rng))
+
+        # 按顺序做重叠交叉淡化并拼接
+        processed_chunks = []
+        for idx, (s, e, processed_chunk) in enumerate(results):
+            if idx > 0 and len(processed_chunks) > 0:
                 fade_samples = min(overlap_samples, processed_chunk.shape[1] // 2)
-                
-                # 前一块的尾部淡出
                 prev_chunk = processed_chunks[-1]
                 if prev_chunk.shape[1] > fade_samples:
                     fade_out = np.linspace(1, 0, fade_samples)
                     prev_chunk[:, -fade_samples:] *= fade_out
-                
-                # 当前块的头部淡入
                 if processed_chunk.shape[1] > fade_samples:
                     fade_in = np.linspace(0, 1, fade_samples)
                     processed_chunk[:, :fade_samples] *= fade_in
-                    
-                    # 混合重叠区域
                     if prev_chunk.shape[1] >= fade_samples:
                         processed_chunk[:, :fade_samples] += prev_chunk[:, -fade_samples:]
                         prev_chunk = prev_chunk[:, :-fade_samples]
                         processed_chunks[-1] = prev_chunk
-            
             processed_chunks.append(processed_chunk)
-        
-        # 拼接所有块
+
         return np.concatenate(processed_chunks, axis=1)
     
     def apply_style_params(self, audio: np.ndarray, style_params: Dict) -> np.ndarray:

@@ -175,3 +175,84 @@ def get_job(job_id: str, db: Session = Depends(get_db)):
     }
     return resp
 
+
+from datetime import datetime
+import base64, json
+from uuid import UUID
+from sqlalchemy import and_, or_
+
+class JobItem(BaseModel):
+    id: str
+    user_id: str
+    mode: str
+    status: str
+    progress: int
+    created_at: datetime
+    updated_at: datetime
+    result_key: Optional[str] = None
+    error: Optional[str] = None
+
+class JobListResponse(BaseModel):
+    items: list[JobItem]
+    next_cursor: Optional[str] = None
+
+def _encode_cursor(created_at: datetime, id_str: str) -> str:
+    payload = {"created_at": created_at.isoformat(), "id": id_str}
+    return base64.urlsafe_b64encode(json.dumps(payload).encode()).decode()
+
+def _decode_cursor(cursor: str) -> tuple[datetime, str]:
+    data = json.loads(base64.urlsafe_b64decode(cursor.encode()).decode())
+    return datetime.fromisoformat(data["created_at"]), data["id"]
+
+@app.get("/jobs", response_model=JobListResponse)
+def list_jobs(
+    user_id: Optional[str] = None,
+    status: Optional[str] = None,
+    limit: int = 20,
+    cursor: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """List jobs with keyset pagination ordered by created_at desc, id desc."""
+    limit = max(1, min(limit, 100))
+
+    q = db.query(Job)
+    if user_id:
+        try:
+            q = q.filter(Job.user_id == UUID(user_id))
+        except Exception:
+            raise HTTPException(status_code=400, detail="invalid user_id")
+    if status:
+        q = q.filter(Job.status == status)
+
+    if cursor:
+        try:
+            created_after, last_id = _decode_cursor(cursor)
+            # keyset: (created_at < c) OR (created_at = c AND id < last_id)
+            q = q.filter(or_(Job.created_at < created_after, and_(Job.created_at == created_after, Job.id < UUID(last_id))))
+        except Exception:
+            raise HTTPException(status_code=400, detail="invalid cursor")
+
+    q = q.order_by(Job.created_at.desc(), Job.id.desc()).limit(limit + 1)
+    rows = q.all()
+
+    items = []
+    for r in rows[:limit]:
+        items.append(JobItem(
+            id=str(r.id),
+            user_id=str(r.user_id),
+            mode=r.mode,
+            status=r.status,
+            progress=r.progress or 0,
+            created_at=r.created_at,
+            updated_at=r.updated_at,
+            result_key=r.result_key,
+            error=r.error,
+        ))
+
+    next_cursor = None
+    if len(rows) > limit:
+        last = rows[limit - 1]
+        next_cursor = _encode_cursor(last.created_at, str(last.id))
+
+    return JobListResponse(items=items, next_cursor=next_cursor)
+
