@@ -33,6 +33,9 @@ app.conf.update(
     enable_utc=True,
     task_routes={
         "app.worker.process_audio_job": {"queue": "audio_processing"},
+        "app.worker.analyze_features": {"queue": "audio_analyze"},
+        "app.worker.invert_params": {"queue": "audio_invert"},
+        "app.worker.render_audio": {"queue": "audio_render"},
     },
 )
 

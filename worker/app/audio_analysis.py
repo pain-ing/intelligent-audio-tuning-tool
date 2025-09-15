@@ -298,12 +298,24 @@ class AudioAnalyzer:
             }
     
     def analyze_features(self, file_path: str) -> Dict:
-        """完整的音频特征分析"""
+        """完整的音频特征分析（带缓存）"""
         logger.info(f"Starting audio analysis for: {file_path}")
-        
+
+        # 尝试缓存
+        try:
+            from app.cache import cache_get, cache_set, make_file_hash
+            file_hash = make_file_hash(file_path)
+            cache_key = f"v1:{self.sample_rate}:{file_hash}"
+            cached = cache_get("features", cache_key)
+            if cached:
+                logger.info("Analysis cache hit")
+                return cached
+        except Exception:
+            cached = None
+
         # 加载音频
         audio, sr = self.load_audio(file_path)
-        
+
         # 执行各种分析
         features = {
             "stft": self.analyze_stft(audio),
@@ -320,7 +332,13 @@ class AudioAnalyzer:
                 "samples": audio.shape[1]
             }
         }
-        
+
+        # 写入缓存
+        try:
+            cache_set("features", cache_key, features, ttl_sec=24 * 3600)
+        except Exception:
+            pass
+
         logger.info("Audio analysis completed")
         return features
 
