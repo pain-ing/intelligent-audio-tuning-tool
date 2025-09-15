@@ -1,5 +1,21 @@
 import axios from 'axios';
 
+// 工具函数：格式化速度
+const formatSpeed = (bytesPerSecond) => {
+  if (bytesPerSecond === 0) return '0 B/s';
+  const units = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
+  const i = Math.floor(Math.log(bytesPerSecond) / Math.log(1024));
+  return `${(bytesPerSecond / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
+};
+
+// 工具函数：格式化时间
+const formatTime = (seconds) => {
+  if (seconds === 0 || !isFinite(seconds)) return '计算中...';
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return mins > 0 ? `${mins}分${secs}秒` : `${secs}秒`;
+};
+
 // 创建 axios 实例
 const api = axios.create({
   baseURL: process.env.REACT_APP_API_URL || 'http://localhost:8080',
@@ -109,24 +125,48 @@ export const audioAPI = {
 
 // 文件上传相关
 export const uploadAPI = {
-  // 直接上传到对象存储
+  // 直接上传到对象存储（增强版本）
   uploadToStorage: async (file, signedUrl, onProgress) => {
-    const formData = new FormData();
-    formData.append('file', file);
+    try {
+      const response = await axios.put(signedUrl, file, {
+        headers: {
+          'Content-Type': file.type,
+        },
+        onUploadProgress: (progressEvent) => {
+          if (onProgress && progressEvent.total) {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            const speed = progressEvent.rate || 0;
+            const timeRemaining = speed > 0 ? (progressEvent.total - progressEvent.loaded) / speed : 0;
 
-    return axios.put(signedUrl, file, {
-      headers: {
-        'Content-Type': file.type,
-      },
-      onUploadProgress: (progressEvent) => {
-        if (onProgress) {
-          const percentCompleted = Math.round(
-            (progressEvent.loaded * 100) / progressEvent.total
-          );
-          onProgress(percentCompleted);
-        }
-      },
-    });
+            onProgress({
+              loaded: progressEvent.loaded,
+              total: progressEvent.total,
+              percent: percentCompleted,
+              speed: speed,
+              timeRemaining: timeRemaining,
+              speedText: formatSpeed(speed),
+              timeText: formatTime(timeRemaining)
+            });
+          }
+        },
+        timeout: 300000, // 5分钟超时
+      });
+
+      return response;
+    } catch (error) {
+      // 增强错误处理
+      if (error.code === 'ECONNABORTED') {
+        throw new Error('上传超时，请检查网络连接或尝试上传较小的文件');
+      } else if (error.response?.status === 413) {
+        throw new Error('文件过大，请选择较小的文件');
+      } else if (error.response?.status >= 500) {
+        throw new Error('服务器错误，请稍后重试');
+      } else if (error.response?.status === 403) {
+        throw new Error('上传权限已过期，请重新获取上传链接');
+      } else {
+        throw new Error(`上传失败: ${error.message || '未知错误'}`);
+      }
+    }
   },
 
   // 分片上传（大文件）

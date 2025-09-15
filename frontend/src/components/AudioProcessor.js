@@ -26,37 +26,99 @@ const AudioProcessor = () => {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
 
+  // 上传进度状态
+  const [uploadProgress, setUploadProgress] = useState({
+    reference: { percent: 0, uploading: false, speed: '', timeRemaining: '' },
+    target: { percent: 0, uploading: false, speed: '', timeRemaining: '' }
+  });
+
   // 文件上传处理
   const handleReferenceUpload = useCallback(async (file) => {
     try {
+      setError(null);
+      setUploadProgress(prev => ({
+        ...prev,
+        reference: { percent: 0, uploading: true, speed: '', timeRemaining: '' }
+      }));
+
       const uploadInfo = await audioAPI.getUploadSignature(file.type, '.wav');
-      // 直接上传到对象存储
-      await uploadAPI.uploadToStorage(file, uploadInfo.upload_url);
+
+      // 直接上传到对象存储，带进度回调
+      await uploadAPI.uploadToStorage(file, uploadInfo.upload_url, (progressInfo) => {
+        setUploadProgress(prev => ({
+          ...prev,
+          reference: {
+            percent: progressInfo.percent,
+            uploading: true,
+            speed: progressInfo.speedText || '',
+            timeRemaining: progressInfo.timeText || ''
+          }
+        }));
+      });
+
       // 保存文件信息（使用对象键）
       setReferenceFile({
         name: file.name,
         key: uploadInfo.object_key,
         file: file
       });
+      setUploadProgress(prev => ({
+        ...prev,
+        reference: { percent: 100, uploading: false, speed: '', timeRemaining: '' }
+      }));
       message.success('参考音频上传成功');
     } catch (error) {
-      message.error('参考音频上传失败');
+      console.error('Reference upload failed:', error);
+      setUploadProgress(prev => ({
+        ...prev,
+        reference: { percent: 0, uploading: false, speed: '', timeRemaining: '' }
+      }));
+      setError(`参考音频上传失败: ${error.message}`);
+      message.error(`参考音频上传失败: ${error.message}`);
     }
   }, []);
 
   const handleTargetUpload = useCallback(async (file) => {
     try {
+      setError(null);
+      setUploadProgress(prev => ({
+        ...prev,
+        target: { percent: 0, uploading: true, speed: '', timeRemaining: '' }
+      }));
+
       const uploadInfo = await audioAPI.getUploadSignature(file.type, '.wav');
-      // 直接上传到对象存储
-      await uploadAPI.uploadToStorage(file, uploadInfo.upload_url);
+
+      // 直接上传到对象存储，带进度回调
+      await uploadAPI.uploadToStorage(file, uploadInfo.upload_url, (progressInfo) => {
+        setUploadProgress(prev => ({
+          ...prev,
+          target: {
+            percent: progressInfo.percent,
+            uploading: true,
+            speed: progressInfo.speedText || '',
+            timeRemaining: progressInfo.timeText || ''
+          }
+        }));
+      });
+
       setTargetFile({
         name: file.name,
         key: uploadInfo.object_key,
         file: file
       });
+      setUploadProgress(prev => ({
+        ...prev,
+        target: { percent: 100, uploading: false, speed: '', timeRemaining: '' }
+      }));
       message.success('目标音频上传成功');
     } catch (error) {
-      message.error('目标音频上传失败');
+      console.error('Target upload failed:', error);
+      setUploadProgress(prev => ({
+        ...prev,
+        target: { percent: 0, uploading: false, speed: '', timeRemaining: '' }
+      }));
+      setError(`目标音频上传失败: ${error.message}`);
+      message.error(`目标音频上传失败: ${error.message}`);
     }
   }, []);
 
@@ -189,8 +251,26 @@ const AudioProcessor = () => {
               description="已经过调音处理的音频文件"
               file={referenceFile}
             />
+            {/* 上传进度显示 */}
+            {uploadProgress.reference.uploading && (
+              <div style={{ marginTop: 16 }}>
+                <Progress
+                  percent={uploadProgress.reference.percent}
+                  status="active"
+                  format={(percent) => `${percent}%`}
+                />
+                <div style={{ marginTop: 8, fontSize: '12px', color: '#666' }}>
+                  {uploadProgress.reference.speed && (
+                    <span>速度: {uploadProgress.reference.speed}</span>
+                  )}
+                  {uploadProgress.reference.timeRemaining && (
+                    <span style={{ marginLeft: 16 }}>剩余时间: {uploadProgress.reference.timeRemaining}</span>
+                  )}
+                </div>
+              </div>
+            )}
             {referenceFile && (
-              <AudioPlayer 
+              <AudioPlayer
                 file={referenceFile.file}
                 title="参考音频"
               />
@@ -207,8 +287,26 @@ const AudioProcessor = () => {
               description="需要调音处理的原始音频文件"
               file={targetFile}
             />
+            {/* 上传进度显示 */}
+            {uploadProgress.target.uploading && (
+              <div style={{ marginTop: 16 }}>
+                <Progress
+                  percent={uploadProgress.target.percent}
+                  status="active"
+                  format={(percent) => `${percent}%`}
+                />
+                <div style={{ marginTop: 8, fontSize: '12px', color: '#666' }}>
+                  {uploadProgress.target.speed && (
+                    <span>速度: {uploadProgress.target.speed}</span>
+                  )}
+                  {uploadProgress.target.timeRemaining && (
+                    <span style={{ marginLeft: 16 }}>剩余时间: {uploadProgress.target.timeRemaining}</span>
+                  )}
+                </div>
+              </div>
+            )}
             {targetFile && (
-              <AudioPlayer 
+              <AudioPlayer
                 file={targetFile.file}
                 title="目标音频"
               />
@@ -264,14 +362,46 @@ const AudioProcessor = () => {
               </div>
             )}
 
-            {/* 错误信息 */}
+            {/* 错误信息（增强版本） */}
             {error && (
               <Alert
-                message="处理失败"
-                description={error}
+                message="操作失败"
+                description={
+                  <div>
+                    <div style={{ marginBottom: 8 }}>{error}</div>
+                    <div style={{ fontSize: '12px', color: '#666' }}>
+                      <strong>可能的解决方案：</strong>
+                      <ul style={{ margin: '4px 0', paddingLeft: '16px' }}>
+                        {error.includes('上传') && (
+                          <>
+                            <li>检查网络连接是否稳定</li>
+                            <li>确认文件格式为支持的音频格式（MP3、WAV、FLAC等）</li>
+                            <li>尝试上传较小的文件（建议小于100MB）</li>
+                          </>
+                        )}
+                        {error.includes('处理') && (
+                          <>
+                            <li>确认上传的文件是有效的音频文件</li>
+                            <li>检查音频文件是否损坏</li>
+                            <li>稍后重试，可能是服务器暂时繁忙</li>
+                          </>
+                        )}
+                        {!error.includes('上传') && !error.includes('处理') && (
+                          <>
+                            <li>刷新页面重试</li>
+                            <li>检查网络连接</li>
+                            <li>如问题持续，请联系技术支持</li>
+                          </>
+                        )}
+                      </ul>
+                    </div>
+                  </div>
+                }
                 type="error"
                 showIcon
-                style={{ maxWidth: 500 }}
+                closable
+                onClose={() => setError(null)}
+                style={{ maxWidth: 600 }}
               />
             )}
 

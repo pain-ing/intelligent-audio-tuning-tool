@@ -19,20 +19,29 @@ class AudioAnalyzer:
     def __init__(self, sample_rate: int = 48000):
         self.sample_rate = sample_rate
         self.meter = pyln.Meter(sample_rate)  # LUFS meter
+
+        # 缓存 Mel 过滤器组以减少重复计算
+        self._mel_filters_cache = {}
+
+        # 内存优化：使用 float32 减少内存占用
+        self.dtype = np.float32
         
     def load_audio(self, file_path: str) -> Tuple[np.ndarray, int]:
         """加载音频文件"""
         try:
-            # 使用 librosa 加载音频
-            audio, sr = librosa.load(file_path, sr=self.sample_rate, mono=False)
-            
+            # 使用 librosa 加载音频，指定 dtype 为 float32 节省内存
+            audio, sr = librosa.load(file_path, sr=self.sample_rate, mono=False, dtype=self.dtype)
+
             # 确保是 2D 数组 (channels, samples)
             if audio.ndim == 1:
                 audio = audio.reshape(1, -1)
             elif audio.ndim == 2 and audio.shape[0] > audio.shape[1]:
                 audio = audio.T  # 转置为 (channels, samples)
-                
-            logger.info(f"Loaded audio: {audio.shape} at {sr}Hz")
+
+            # 确保数据类型为 float32
+            audio = audio.astype(self.dtype)
+
+            logger.info(f"Loaded audio: {audio.shape} at {sr}Hz, dtype: {audio.dtype}")
             return audio, sr
             
         except Exception as e:
@@ -74,17 +83,28 @@ class AudioAnalyzer:
         }
     
     def analyze_mel_spectrum(self, audio: np.ndarray) -> Dict:
-        """Mel 频谱分析"""
+        """Mel 频谱分析（内存优化版）"""
         n_mels = 128
-        
-        # 计算 Mel 频谱
+
+        # 使用缓存的 Mel 过滤器组
+        cache_key = (n_mels, self.sample_rate)
+        if cache_key not in self._mel_filters_cache:
+            self._mel_filters_cache[cache_key] = librosa.filters.mel(
+                sr=self.sample_rate,
+                n_fft=2048,
+                n_mels=n_mels,
+                fmax=self.sample_rate//2
+            ).astype(self.dtype)
+
+        # 计算 Mel 频谱，使用 float32
         mel_spec = librosa.feature.melspectrogram(
-            y=audio[0], 
+            y=audio[0].astype(self.dtype),
             sr=self.sample_rate,
             n_mels=n_mels,
-            fmax=self.sample_rate//2
+            fmax=self.sample_rate//2,
+            dtype=self.dtype
         )
-        mel_spec_db = librosa.power_to_db(mel_spec)
+        mel_spec_db = librosa.power_to_db(mel_spec, ref=np.max)
         
         # 统计特征
         return {

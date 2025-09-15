@@ -235,9 +235,11 @@ def render_audio(in_key: str, style_params: Dict) -> tuple[str, Dict]:
                 os.unlink(path)
 
 def update_job_status(job_id: str, status: str, progress: int = None, result_key: str = None, metrics: Dict = None, error: str = None):
-    """Update job status in database."""
-    from sqlalchemy import create_engine
+    """Update job status in database with ORM, transactions and retry."""
+    from sqlalchemy import create_engine, text
     from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.exc import SQLAlchemyError
+    import time
 
     # Import models (assuming they're shared or copied)
     import sys
@@ -245,34 +247,62 @@ def update_job_status(job_id: str, status: str, progress: int = None, result_key
 
     logger.info(f"Job {job_id}: {status} (progress: {progress}%)")
 
-    try:
-        # Create database connection
-        db_url = os.getenv("DATABASE_URL") or os.getenv("DB_URL", "postgresql://user:pass@localhost:5432/audio")
-        engine = create_engine(db_url)
-        SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    # 重试机制
+    max_retries = 3
+    retry_delay = 1.0  # 秒
 
-        # Update job in database
-        db = SessionLocal()
-        # Note: This is a simplified update - in production, import proper models
-        db.execute(
-            "UPDATE jobs SET status = :status, progress = :progress, "
-            "result_key = :result_key, metrics = :metrics, error = :error, updated_at = NOW() "
-            "WHERE id = :job_id",
-            {
-                "status": status,
-                "progress": progress,
-                "result_key": result_key,
-                "metrics": metrics,
-                "error": error,
-                "job_id": job_id
-            }
-        )
-        db.commit()
-        db.close()
+    for attempt in range(max_retries):
+        try:
+            # Create database connection with connection pooling
+            db_url = os.getenv("DATABASE_URL") or os.getenv("DB_URL", "postgresql://user:pass@localhost:5432/audio")
+            engine = create_engine(db_url, pool_pre_ping=True)
+            SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-    except Exception as e:
-        logger.error(f"Failed to update job status: {e}")
-        # Don't fail the task if DB update fails
+            # Update job in database with transaction
+            with SessionLocal() as db:
+                with db.begin():
+                    # 使用参数化查询防止 SQL 注入
+                    result = db.execute(
+                        text("""
+                            UPDATE jobs SET
+                                status = :status,
+                                progress = :progress,
+                                result_key = :result_key,
+                                metrics = :metrics,
+                                error = :error,
+                                updated_at = NOW()
+                            WHERE id = :job_id
+                        """),
+                        {
+                            "status": status,
+                            "progress": progress,
+                            "result_key": result_key,
+                            "metrics": metrics,
+                            "error": error,
+                            "job_id": job_id
+                        }
+                    )
+
+                    if result.rowcount == 0:
+                        logger.warning(f"Job {job_id} not found in database")
+                    else:
+                        logger.info(f"Updated job {job_id} status to {status} (attempt {attempt + 1})")
+
+                    # 事务会在 with 块结束时自动提交
+                    return  # 成功，退出重试循环
+
+        except SQLAlchemyError as e:
+            logger.warning(f"Database error on attempt {attempt + 1}/{max_retries}: {e}")
+            if attempt == max_retries - 1:
+                logger.error(f"Failed to update job status after {max_retries} attempts: {e}")
+                # Don't fail the task if DB update fails
+                return
+            time.sleep(retry_delay * (2 ** attempt))  # 指数退避
+
+        except Exception as e:
+            logger.error(f"Unexpected error updating job status: {e}")
+            # Don't fail the task if DB update fails
+            return
 
 if __name__ == "__main__":
     app.start()

@@ -21,18 +21,49 @@ class AudioRenderer:
     def __init__(self, sample_rate: int = 48000):
         self.sample_rate = sample_rate
         self.meter = pyln.Meter(sample_rate)
+
+        # 内存优化：使用 float32
+        self.dtype = np.float32
+
+        # 自适应分块参数
+        self._adaptive_chunk_size = self._calculate_adaptive_chunk_size()
+
+    def _calculate_adaptive_chunk_size(self) -> int:
+        """根据可用内存计算自适应分块大小"""
+        try:
+            import psutil
+            # 获取可用内存（GB）
+            available_memory_gb = psutil.virtual_memory().available / (1024**3)
+
+            # 根据可用内存调整分块大小
+            if available_memory_gb > 8:
+                chunk_duration = 60.0  # 8GB+ 内存：60秒块
+            elif available_memory_gb > 4:
+                chunk_duration = 30.0  # 4-8GB 内存：30秒块
+            else:
+                chunk_duration = 15.0  # <4GB 内存：15秒块
+
+            return int(chunk_duration * self.sample_rate)
+
+        except ImportError:
+            # 如果没有 psutil，使用默认值
+            return int(30.0 * self.sample_rate)  # 30秒默认
         
     def load_audio(self, file_path: str) -> Tuple[np.ndarray, int]:
         """加载音频文件"""
         try:
-            audio, sr = librosa.load(file_path, sr=self.sample_rate, mono=False)
-            
+            # 使用 librosa 加载音频，指定 dtype 为 float32
+            audio, sr = librosa.load(file_path, sr=self.sample_rate, mono=False, dtype=self.dtype)
+
             if audio.ndim == 1:
                 audio = audio.reshape(1, -1)
             elif audio.ndim == 2 and audio.shape[0] > audio.shape[1]:
                 audio = audio.T
-                
-            logger.info(f"Loaded audio for rendering: {audio.shape} at {sr}Hz")
+
+            # 确保数据类型为 float32
+            audio = audio.astype(self.dtype)
+
+            logger.info(f"Loaded audio for rendering: {audio.shape} at {sr}Hz, dtype: {audio.dtype}")
             return audio, sr
             
         except Exception as e:
@@ -255,10 +286,14 @@ class AudioRenderer:
             logger.warning(f"Limiter processing failed: {e}")
             return audio
     
-    def process_in_chunks(self, audio: np.ndarray, style_params: Dict, 
-                         chunk_duration: float = 30.0) -> np.ndarray:
-        """分块处理长音频"""
-        chunk_samples = int(chunk_duration * self.sample_rate)
+    def process_in_chunks(self, audio: np.ndarray, style_params: Dict,
+                         chunk_duration: float = None) -> np.ndarray:
+        """分块处理长音频（自适应内存优化版）"""
+        # 使用自适应分块大小，如果未指定则使用计算的值
+        if chunk_duration is None:
+            chunk_samples = self._adaptive_chunk_size
+        else:
+            chunk_samples = int(chunk_duration * self.sample_rate)
         
         if audio.shape[1] <= chunk_samples:
             # 音频较短，直接处理
