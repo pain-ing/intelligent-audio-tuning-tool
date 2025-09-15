@@ -165,6 +165,15 @@ def get_job(job_id: str, db: Session = Depends(get_db)):
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
+    # build download url via storage service if possible
+    download_url = None
+    if job.result_key:
+        try:
+            download_url = storage_service.generate_download_url(job.result_key, expires_in=3600)
+        except Exception:
+            # fallback to a direct path placeholder
+            download_url = f"/objects/{job.result_key}"
+
     resp = {
         "id": str(job.id),
         "user_id": str(job.user_id),
@@ -173,7 +182,7 @@ def get_job(job_id: str, db: Session = Depends(get_db)):
         "progress": job.progress,
         "metrics": job.metrics or {},
         "result_key": job.result_key,
-        "download_url": f"https://example-object-store/{job.result_key}" if job.result_key else None,
+        "download_url": download_url,
         "viz_urls": None,
         "error": job.error,
         "created_at": job.created_at,

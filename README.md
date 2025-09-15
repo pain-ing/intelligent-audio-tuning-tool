@@ -57,6 +57,9 @@ curl "http://localhost:8080/jobs/{job_id}"
 - 重试失败任务：
   - POST /jobs/{job_id}/retry（仅 FAILED 可重试）
 - POST /jobs/{job_id}/cancel（PENDING/ANALYZING/INVERTING/RENDERING 可取消）
+- 详情：
+  - GET /jobs/{job_id}（返回 download_url：预签名下载 URL，默认 1 小时有效）
+
 
 
 

@@ -143,6 +143,16 @@ export default function JobsPanel() {
                     setDetailLoading(false);
                   }
                 }}>详情</Button>,
+                ...(item.status === 'COMPLETED' ? [
+                  <Button key="download" size="small" type="link" onClick={async () => {
+                    try {
+                      const d = await audioAPI.getJobStatus(item.id);
+                      if (d.download_url) {
+                        window.open(d.download_url, '_blank');
+                      }
+                    } catch (e) {}
+                  }}>下载</Button>
+                ] : []),
                 ...(item.status === 'FAILED' ? [
                   <Button key="retry" size="small" type="primary" danger onClick={async () => {
                     try {
