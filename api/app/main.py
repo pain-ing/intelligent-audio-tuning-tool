@@ -175,6 +175,31 @@ def get_job(job_id: str, db: Session = Depends(get_db)):
     }
     return resp
 
+@app.post("/jobs/{job_id}/retry")
+def retry_job(job_id: str, db: Session = Depends(get_db)):
+    """Retry a failed job by resetting its state and re-dispatching the task."""
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.status != "FAILED":
+        raise HTTPException(status_code=400, detail="Only FAILED jobs can be retried")
+    # reset state
+    job.status = "PENDING"
+    job.progress = 0
+    job.error = None
+    job.result_key = None
+    job.metrics = None
+    db.add(job)
+    db.commit()
+    # re-dispatch
+    celery_app.send_task(
+        "app.worker.process_audio_job",
+        args=[str(job.id), job.mode, job.ref_key, job.tgt_key, job.params or {}],
+        queue="audio_processing"
+    )
+    return {"job_id": str(job.id), "status": job.status}
+
+
 
 from datetime import datetime
 import base64, json
@@ -210,6 +235,8 @@ def list_jobs(
     status: Optional[str] = None,
     limit: int = 20,
     cursor: Optional[str] = None,
+    created_before: Optional[str] = None,
+    created_after: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
     """List jobs with keyset pagination ordered by created_at desc, id desc."""
@@ -224,11 +251,25 @@ def list_jobs(
     if status:
         q = q.filter(Job.status == status)
 
+    # explicit time range filters
+    if created_after:
+        try:
+            ca = datetime.fromisoformat(created_after)
+            q = q.filter(Job.created_at >= ca)
+        except Exception:
+            raise HTTPException(status_code=400, detail="invalid created_after")
+    if created_before:
+        try:
+            cb = datetime.fromisoformat(created_before)
+            q = q.filter(Job.created_at <= cb)
+        except Exception:
+            raise HTTPException(status_code=400, detail="invalid created_before")
+
     if cursor:
         try:
-            created_after, last_id = _decode_cursor(cursor)
+            created_after_c, last_id = _decode_cursor(cursor)
             # keyset: (created_at < c) OR (created_at = c AND id < last_id)
-            q = q.filter(or_(Job.created_at < created_after, and_(Job.created_at == created_after, Job.id < UUID(last_id))))
+            q = q.filter(or_(Job.created_at < created_after_c, and_(Job.created_at == created_after_c, Job.id < UUID(last_id))))
         except Exception:
             raise HTTPException(status_code=400, detail="invalid cursor")
 

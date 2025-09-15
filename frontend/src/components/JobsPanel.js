@@ -67,7 +67,8 @@ export default function JobsPanel() {
         {stats ? (
           <Row gutter={16}>
             {['PENDING','ANALYZING','INVERTING','RENDERING','COMPLETED','FAILED'].map((k) => (
-              <Col key={k} xs={12} sm={8} md={4}>
+              <Col key={k} xs={12} sm={8} md={4} style={{ cursor: 'pointer' }}
+                   onClick={() => { setStatus(k); setCursor(null); fetchList(null); }}>
                 <Statistic title={k} value={stats[k] || 0} />
               </Col>
             ))}
@@ -121,7 +122,17 @@ export default function JobsPanel() {
                   } finally {
                     setDetailLoading(false);
                   }
-                }}>详情</Button>
+                }}>详情</Button>,
+                ...(item.status === 'FAILED' ? [
+                  <Button key="retry" size="small" type="primary" danger onClick={async () => {
+                    try {
+                      await audioAPI.retryJob(item.id);
+                      setCursor(null);
+                      await fetchList(null);
+                      await fetchStats();
+                    } catch (e) {}
+                  }}>重试</Button>
+                ] : [])
               ]}
             >
               <List.Item.Meta
