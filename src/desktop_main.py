@@ -70,12 +70,35 @@ def main():
         
         logger.info(f"Starting server on {host}:{port}")
         
+        # 配置 uvicorn 日志以避免打包环境中的问题
+        log_config = {
+            "version": 1,
+            "disable_existing_loggers": False,
+            "formatters": {
+                "default": {
+                    "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+                },
+            },
+            "handlers": {
+                "default": {
+                    "formatter": "default",
+                    "class": "logging.StreamHandler",
+                    "stream": "ext://sys.stdout",
+                },
+            },
+            "root": {
+                "level": "INFO",
+                "handlers": ["default"],
+            },
+        }
+
         uvicorn.run(
             app,
             host=host,
             port=port,
             log_level="info",
-            access_log=False  # 减少日志噪音
+            access_log=False,  # 减少日志噪音
+            log_config=log_config
         )
         
     except Exception as e:

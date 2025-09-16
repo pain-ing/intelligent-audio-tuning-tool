@@ -3,13 +3,15 @@
 """
 import os
 from typing import Optional, Dict, Any
+# Pydantic 兼容性处理
 try:
-    from pydantic_settings import BaseSettings
-    from pydantic import Field
+    # 优先尝试 pydantic v1.x 的导入方式
+    from pydantic import BaseSettings, Field
 except ImportError:
     try:
-        # 兼容旧版本pydantic
-        from pydantic import BaseSettings, Field
+        # pydantic v2.x 新的导入方式
+        from pydantic_settings import BaseSettings
+        from pydantic import Field
     except ImportError:
         # 最终兜底 - 创建最小化BaseSettings
         from pydantic import BaseModel, Field
