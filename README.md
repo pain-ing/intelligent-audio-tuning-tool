@@ -5,6 +5,10 @@
 [![Downloads](https://img.shields.io/github/downloads/pain-ing/intelligent-audio-tuning-tool/total?label=downloads)](https://github.com/pain-ing/intelligent-audio-tuning-tool/releases)
 
 
+- 问题反馈 / 建议：https://github.com/pain-ing/intelligent-audio-tuning-tool/issues/new/choose （请选择 Bug 报告或功能需求模板）
+- v1.0.1 里程碑：https://github.com/pain-ing/intelligent-audio-tuning-tool/milestone/1
+
+
 
 
 
