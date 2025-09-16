@@ -129,12 +129,16 @@ def _setup_static_files(app: FastAPI):
     """设置静态文件服务"""
     if config.app_mode == AppMode.DESKTOP:
         # 桌面模式：从resources目录提供静态文件
-        frontend_path = os.path.join(config.resources_path or "", "frontend")
+        frontend_path = os.path.join(config.resources_path or "", "frontend", "build")
         if os.path.exists(frontend_path):
             static_path = os.path.join(frontend_path, "static")
             if os.path.exists(static_path):
                 app.mount("/static", StaticFiles(directory=static_path), name="static")
                 logger.info(f"Static files mounted from: {static_path}")
+            else:
+                logger.warning(f"Static directory not found: {static_path}")
+        else:
+            logger.warning(f"Frontend directory not found: {frontend_path}")
     else:
         # 云端模式：从构建目录提供静态文件
         frontend_path = os.path.join("frontend", "build")
@@ -152,21 +156,32 @@ def _setup_frontend_routes(app: FastAPI):
     async def serve_frontend(path: str = ""):
         """提供前端应用"""
         if config.app_mode == AppMode.DESKTOP:
-            frontend_path = os.path.join(config.resources_path or "", "frontend")
+            # 桌面模式下，前端文件在 frontend/build 目录
+            frontend_path = os.path.join(config.resources_path or "", "frontend", "build")
         else:
             frontend_path = os.path.join("frontend", "build")
-        
+
         index_path = os.path.join(frontend_path, "index.html")
-        
+
+        logger.info(f"Looking for frontend at: {frontend_path}")
+        logger.info(f"Index file path: {index_path}")
+        logger.info(f"Index file exists: {os.path.exists(index_path)}")
+
         if os.path.exists(index_path):
             return FileResponse(index_path)
         else:
-            # 如果前端文件不存在，返回API信息
+            # 如果前端文件不存在，返回API信息和调试信息
             return {
                 "message": f"{config.app_name} API",
                 "version": config.app_version,
                 "mode": config.app_mode.value,
-                "docs": "/docs"
+                "docs": "/docs",
+                "debug": {
+                    "frontend_path": frontend_path,
+                    "index_path": index_path,
+                    "resources_path": config.resources_path,
+                    "current_dir": os.getcwd()
+                }
             }
     
     # 文件服务路由（用于本地存储）
