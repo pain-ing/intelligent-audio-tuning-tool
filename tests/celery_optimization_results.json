@@ -1,0 +1,39 @@
+{
+  "memory_monitor": {
+    "initial_memory_mb": 45.76171875,
+    "final_memory_mb": 45.96484375,
+    "peak_memory_mb": 45.76171875,
+    "memory_growth_mb": 0.7578125,
+    "success": true
+  },
+  "task_memory_manager": {
+    "initial_memory_mb": 45.96875,
+    "final_memory_mb": 45.9765625,
+    "cleanup_called": true,
+    "memory_limit_mb": 100.0,
+    "success": true
+  },
+  "optimized_config": {
+    "worker_max_tasks_per_child": 100,
+    "worker_max_memory_per_child": 1048576,
+    "worker_prefetch_multiplier": 1,
+    "task_acks_late": true,
+    "result_expires": 3600,
+    "result_cache_max": 1000,
+    "task_routes_count": 4,
+    "success": true
+  },
+  "memory_decorator": {
+    "task_result": 100,
+    "initial_memory_mb": 46.04296875,
+    "final_memory_mb": 45.05859375,
+    "memory_growth_mb": -0.984375,
+    "success": true
+  },
+  "cleanup_effectiveness": {
+    "peak_memory_mb": 47.15234375,
+    "memory_growth_rate": 1.0456069166123647,
+    "tasks_executed": 5,
+    "success": true
+  }
+}

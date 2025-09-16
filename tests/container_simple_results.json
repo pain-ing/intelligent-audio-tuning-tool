@@ -1,0 +1,22 @@
+{
+  "traditional_container": {
+    "peak_memory_mb": 32.13671875,
+    "memory_growth_rate": 57.02383116451262,
+    "success": true
+  },
+  "optimized_container": {
+    "peak_memory_mb": 32.0390625,
+    "memory_growth_rate": 13.754524893964929,
+    "container_stats": {
+      "registrations_count": 100,
+      "singletons_count": 20,
+      "weak_singletons_count": 30,
+      "active_scopes_count": 0,
+      "total_scoped_instances": 0,
+      "creation_count": 80,
+      "cleanup_count": 25,
+      "current_scope_id": null
+    },
+    "success": true
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "traditional_database": {
+    "peak_memory_mb": 74.984375,
+    "memory_growth_rate": 35.59303315796478,
+    "sessions_created": 20,
+    "success": true
+  },
+  "optimized_database": {
+    "success": false,
+    "error": "Invalid argument(s) 'pool_size','max_overflow' sent to create_engine(), using configuration SQLiteDialect_pysqlite/StaticPool/Engine.  Please check that the keyword arguments are appropriate for this combination of components."
+  },
+  "connection_pool": {
+    "success": false,
+    "error": "Invalid argument(s) 'pool_size','max_overflow','pool_timeout' sent to create_engine(), using configuration SQLiteDialect_pysqlite/StaticPool/Engine.  Please check that the keyword arguments are appropriate for this combination of components."
+  }
+}

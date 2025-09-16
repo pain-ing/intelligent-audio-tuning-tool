@@ -1,0 +1,45 @@
+{
+  "memory_management": {
+    "traditional": {
+      "peak_memory_mb": 167.5078125,
+      "memory_growth_rate": 32.608246991629244,
+      "success": true
+    },
+    "optimized": {
+      "peak_memory_mb": 103.6328125,
+      "memory_growth_rate": 0.958145720899971,
+      "success": true,
+      "final_stats": {
+        "entries_count": 500,
+        "memory_usage_mb": 10.18429183959961,
+        "memory_limit_mb": 50.0,
+        "memory_usage_percent": 20.36858367919922,
+        "hit_rate": 0.0,
+        "total_hits": 0,
+        "total_misses": 0,
+        "max_entries": 500
+      }
+    },
+    "improvement": {
+      "memory_reduction_mb": 63.875,
+      "reduction_percent": 38.13254978778975
+    }
+  },
+  "performance": {
+    "write_time_sec": 0.1106870174407959,
+    "read_time_sec": 0.0018274784088134766,
+    "hit_rate": 1.0,
+    "entries_count": 500,
+    "memory_usage_mb": 0.9934253692626953,
+    "cache_hit_rate": 1.0,
+    "success": true
+  },
+  "lru_behavior": {
+    "final_entries": 10,
+    "final_memory_mb": 0.009770393371582031,
+    "early_key_evicted": true,
+    "late_key_preserved": true,
+    "lru_working": true,
+    "success": true
+  }
+}

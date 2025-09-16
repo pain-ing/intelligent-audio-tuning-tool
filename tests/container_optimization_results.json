@@ -1,0 +1,18 @@
+{
+  "traditional_container": {
+    "success": false,
+    "error": "No module named 'src'"
+  },
+  "optimized_container": {
+    "success": false,
+    "error": "No module named 'src'"
+  },
+  "scope_lifecycle": {
+    "success": false,
+    "error": "No module named 'src'"
+  },
+  "weak_reference_cleanup": {
+    "success": false,
+    "error": "No module named 'src'"
+  }
+}

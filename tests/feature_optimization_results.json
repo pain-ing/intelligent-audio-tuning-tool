@@ -1,0 +1,51 @@
+{
+  "file_size_mb": 5.493206024169922,
+  "stft": {
+    "traditional": {
+      "peak_memory_mb": 431.0390625,
+      "memory_growth_rate": 28.477852014289457,
+      "success": true
+    },
+    "optimized": {
+      "peak_memory_mb": 341.0234375,
+      "memory_growth_rate": 0.5092769191653921,
+      "success": true
+    },
+    "improvement": {
+      "memory_reduction_mb": 90.015625,
+      "reduction_percent": 20.883403113841915
+    }
+  },
+  "mel": {
+    "traditional": {
+      "peak_memory_mb": 299.515625,
+      "memory_growth_rate": 17.687144165925904,
+      "success": true
+    },
+    "optimized": {
+      "peak_memory_mb": 343.609375,
+      "memory_growth_rate": 1.4440496379005576,
+      "success": true
+    },
+    "improvement": {
+      "memory_reduction_mb": -44.09375,
+      "reduction_percent": -14.721686055610622
+    }
+  },
+  "combined": {
+    "traditional": {
+      "peak_memory_mb": 428.0625,
+      "memory_growth_rate": 0.1590691421466864,
+      "success": true
+    },
+    "optimized": {
+      "peak_memory_mb": 348.04296875,
+      "memory_growth_rate": 0.8180885625240023,
+      "success": true
+    },
+    "improvement": {
+      "memory_reduction_mb": 80.01953125,
+      "reduction_percent": 18.693422397430282
+    }
+  }
+}

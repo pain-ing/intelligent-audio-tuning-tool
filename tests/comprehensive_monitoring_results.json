@@ -1,0 +1,33 @@
+{
+  "streaming_optimization": {
+    "success": false,
+    "error": "MemoryAwareAudioLoader.__init__() got an unexpected keyword argument 'target_memory_mb'. Did you mean 'max_memory_mb'?"
+  },
+  "cache_optimization": {
+    "success": false,
+    "error": "MemoryAwareCache.__init__() got an unexpected keyword argument 'max_items'"
+  },
+  "feature_extraction": {
+    "success": false,
+    "error": "MemoryOptimizedFeatureExtractor.__init__() got an unexpected keyword argument 'buffer_size'"
+  },
+  "system_resources": {
+    "initial_memory_percent": 72.6,
+    "peak_memory_percent": 73.5,
+    "final_memory_percent": 73.0,
+    "initial_cpu_percent": 5.4,
+    "peak_cpu_percent": 4.5,
+    "final_cpu_percent": 3.6,
+    "cpu_work_time_sec": 1.1602261066436768,
+    "memory_work_time_sec": 0.6589391231536865,
+    "total_time_sec": 3.9972541332244873,
+    "memory_recovered": 0.5,
+    "success": true
+  },
+  "test_timestamp": "2025-09-16T17:44:13.998475",
+  "test_environment": {
+    "python_version": "3.13.3 (tags/v3.13.3:6280bb5, Apr  8 2025, 14:47:33) [MSC v.1943 64 bit (AMD64)]",
+    "platform": "win32",
+    "test_audio_available": false
+  }
+}

@@ -14,6 +14,17 @@ from app.audio_analysis import analyzer
 from app.parameter_inversion import ParameterInverter
 from app.audio_rendering import renderer
 
+# Import optimized Celery configuration
+try:
+    from app.celery_optimized import (
+        create_optimized_celery_app,
+        memory_optimized_task,
+        get_memory_stats
+    )
+    OPTIMIZED_CELERY_AVAILABLE = True
+except ImportError:
+    OPTIMIZED_CELERY_AVAILABLE = False
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -23,21 +34,27 @@ inverter = ParameterInverter()
 
 # Celery app configuration
 redis_url = os.getenv("QUEUE_URL", "redis://localhost:6379/0")
-app = Celery("audio_worker", broker=redis_url, backend=redis_url)
+celery_mode = os.getenv("CELERY_MODE", "optimized" if OPTIMIZED_CELERY_AVAILABLE else "traditional").lower()
 
-app.conf.update(
-    task_serializer="json",
-    accept_content=["json"],
-    result_serializer="json",
-    timezone="UTC",
-    enable_utc=True,
-    task_routes={
-        "app.worker.process_audio_job": {"queue": "audio_processing"},
-        "app.worker.analyze_features": {"queue": "audio_analyze"},
-        "app.worker.invert_params": {"queue": "audio_invert"},
-        "app.worker.render_audio": {"queue": "audio_render"},
-    },
-)
+if celery_mode == "optimized" and OPTIMIZED_CELERY_AVAILABLE:
+    app = create_optimized_celery_app("audio_worker", redis_url, redis_url)
+    logger.info("使用优化的Celery配置")
+else:
+    app = Celery("audio_worker", broker=redis_url, backend=redis_url)
+    app.conf.update(
+        task_serializer="json",
+        accept_content=["json"],
+        result_serializer="json",
+        timezone="UTC",
+        enable_utc=True,
+        task_routes={
+            "app.worker.process_audio_job": {"queue": "audio_processing"},
+            "app.worker.analyze_features": {"queue": "audio_analyze"},
+            "app.worker.invert_params": {"queue": "audio_invert"},
+            "app.worker.render_audio": {"queue": "audio_render"},
+        },
+    )
+    logger.info("使用传统的Celery配置")
 
 def download_file(url_or_key: str, local_path: str) -> str:
     """下载文件到本地路径"""
@@ -92,6 +109,7 @@ def upload_file(local_path: str, key: str) -> str:
         raise
 
 @app.task(bind=True)
+@memory_optimized_task if OPTIMIZED_CELERY_AVAILABLE else lambda x: x
 def process_audio_job(self, job_id: str, mode: Literal["A", "B"], ref_key: str, tgt_key: str, opts: Dict = None):
     """Main audio processing task that orchestrates the pipeline."""
     logger.info(f"Starting job {job_id} with mode {mode}")
@@ -231,6 +249,7 @@ def process_audio_job(self, job_id: str, mode: Literal["A", "B"], ref_key: str, 
         raise
 
 @app.task
+@memory_optimized_task if OPTIMIZED_CELERY_AVAILABLE else lambda x: x
 def analyze_features(obj_key: str) -> Dict:
     """Analyze audio features from object storage."""
     logger.info(f"Analyzing features for {obj_key}")
@@ -268,6 +287,7 @@ def analyze_features(obj_key: str) -> Dict:
             os.unlink(tmp_path)
 
 @app.task
+@memory_optimized_task if OPTIMIZED_CELERY_AVAILABLE else lambda x: x
 def invert_params(ref_features: Dict, tgt_features: Dict, mode: Literal["A", "B"]) -> Dict:
     """Invert style parameters from reference and target features."""
     logger.info(f"Inverting parameters for mode {mode}")
@@ -294,6 +314,7 @@ def invert_params(ref_features: Dict, tgt_features: Dict, mode: Literal["A", "B"
         }
 
 @app.task
+@memory_optimized_task if OPTIMIZED_CELERY_AVAILABLE else lambda x: x
 def render_audio(in_key: str, style_params: Dict) -> tuple[str, Dict]:
     """Render audio with applied style parameters."""
     logger.info(f"Rendering audio for {in_key}")
@@ -429,6 +450,27 @@ def update_job_status(job_id: str, status: str, progress: int = None, result_key
             logger.error(f"Unexpected error updating job status: {e}")
             # Don't fail the task if DB update fails
             return
+
+@app.task
+def get_worker_memory_stats() -> Dict:
+    """获取Worker内存统计信息"""
+    try:
+        if OPTIMIZED_CELERY_AVAILABLE:
+            return get_memory_stats()
+        else:
+            # 简单的内存统计
+            import psutil
+            process = psutil.Process()
+            memory_info = process.memory_info()
+            return {
+                "backend": "traditional",
+                "rss_mb": memory_info.rss / 1024 / 1024,
+                "vms_mb": memory_info.vms / 1024 / 1024,
+                "percent": process.memory_percent()
+            }
+    except Exception as e:
+        logger.error(f"获取内存统计失败: {e}")
+        return {"error": str(e)}
 
 if __name__ == "__main__":
     app.start()

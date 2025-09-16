@@ -1,0 +1,25 @@
+{
+  "traditional_database": {
+    "peak_memory_mb": 75.1484375,
+    "memory_growth_rate": 46.31511005410703,
+    "sessions_created": 50,
+    "success": true
+  },
+  "optimized_database": {
+    "peak_memory_mb": 75.1953125,
+    "memory_growth_rate": 10.325182757751449,
+    "sessions_created": 50,
+    "success": true
+  },
+  "session_management": {
+    "success": false,
+    "error": "Textual SQL expression 'SELECT 1' should be explicitly declared as text('SELECT 1')"
+  },
+  "query_optimization": {
+    "first_run_time_sec": 0.030907392501831055,
+    "second_run_time_sec": 0.0267791748046875,
+    "cache_improvement_percent": 13.356732363944923,
+    "queries_executed": 200,
+    "success": true
+  }
+}

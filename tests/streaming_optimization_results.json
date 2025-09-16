@@ -1,0 +1,35 @@
+{
+  "file_size_mb": 16.479534149169922,
+  "analysis": {
+    "traditional": {
+      "peak_memory_mb": 1588.265625,
+      "memory_growth_rate": 12.239340672250645,
+      "success": true
+    },
+    "streaming": {
+      "peak_memory_mb": 836.1484375,
+      "memory_growth_rate": 2.8473226712666198,
+      "success": true
+    },
+    "improvement": {
+      "memory_reduction_mb": 752.1171875,
+      "reduction_percent": 47.35462227862546
+    }
+  },
+  "rendering": {
+    "traditional": {
+      "peak_memory_mb": 1056.22265625,
+      "memory_growth_rate": 1.4523574259596592,
+      "success": true
+    },
+    "streaming": {
+      "peak_memory_mb": 608.390625,
+      "memory_growth_rate": 0.0339118064760882,
+      "success": true
+    },
+    "improvement": {
+      "memory_reduction_mb": 447.83203125,
+      "reduction_percent": 42.399396434079286
+    }
+  }
+}
