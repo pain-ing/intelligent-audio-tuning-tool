@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/pain-ing/intelligent-audio-tuning-tool/actions/workflows/ci.yml/badge.svg)](https://github.com/pain-ing/intelligent-audio-tuning-tool/actions/workflows/ci.yml)
 [![Download](https://img.shields.io/github/v/release/pain-ing/intelligent-audio-tuning-tool?label=download)](https://github.com/pain-ing/intelligent-audio-tuning-tool/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/pain-ing/intelligent-audio-tuning-tool/total?label=downloads)](https://github.com/pain-ing/intelligent-audio-tuning-tool/releases)
+
 
 
 
@@ -229,3 +231,27 @@ npm run build
 
 
 详细技术方案请参考项目文档。
+
+
+## 常见问题（FAQ）
+
+- Windows SmartScreen 警报：点击“更多信息”→“仍要运行”。
+- 杀软/防护误报：加入白名单，或先校验 SHA256（见“下载与安装”）。
+- 首次启动白屏/打不开：检查 8080 端口占用（`netstat -ano | findstr 8080`），释放后再试。
+- 无法写入用户目录：以管理员身份运行，或将应用解压到具备写权限的目录。
+- 解压路径含特殊字符：若异常，可移动到英文路径后再尝试。
+
+## 故障诊断与日志
+
+- 校验下载完整性（PowerShell）：
+  ```powershell
+  Get-FileHash -Algorithm SHA256 "AudioTuner-Desktop-v1.0.0-Release.zip"
+  ```
+- 检查端口占用：
+  ```powershell
+  netstat -ano | findstr 8080
+  ```
+- 日志与配置（若存在）：`%USERPROFILE%\.audio_tuner\`，可打包用于反馈：
+  ```powershell
+  Compress-Archive -Path "$env:USERPROFILE\.audio_tuner" -DestinationPath "$env:USERPROFILE\Desktop\audio_tuner_diag.zip" -Force
+  ```
