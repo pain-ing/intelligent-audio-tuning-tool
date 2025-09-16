@@ -120,6 +120,59 @@ def overlay_mascot(img: Image.Image):
     return img
 
 
+
+def compose_main_from_upload(size: int) -> Image.Image:
+    """Compose main icon using the uploaded source image as the primary subject.
+    Keeps brand elements (gradient background + subtle waveform + AI spark)
+    while making the uploaded figure dominant and clear at small sizes.
+    """
+    base = radial_gradient((size, size)).convert('RGBA')
+    try:
+        src = Image.open(SOURCE_UPLOAD).convert('RGBA')
+    except Exception:
+        return base
+
+    # center-crop to square then scale
+    w, h = src.size
+    side = min(w, h)
+    left = (w - side) // 2
+    top = (h - side) // 2
+    src = src.crop((left, top, left + side, top + side))
+
+    target = int(size * 0.86)
+    src = src.resize((target, target), Image.LANCZOS)
+
+    # rounded mask for a clean app-icon vibe
+    mask = Image.new('L', (target, target), 0)
+    md = ImageDraw.Draw(mask)
+    md.rounded_rectangle([0, 0, target, target], radius=int(target * 0.12), fill=255)
+
+    # subtle drop shadow
+    sh = Image.new('RGBA', (target, target), (0, 0, 0, 0))
+    sd = ImageDraw.Draw(sh)
+    sd.rounded_rectangle([0, 0, target, target], radius=int(target * 0.12), fill=(0, 0, 0, 210))
+    sh = sh.filter(ImageFilter.GaussianBlur(int(size * 0.04)))
+
+    pos = ((size - target) // 2, (size - target) // 2)
+    base.alpha_composite(sh, (pos[0], pos[1] + int(size * 0.02)))
+    base.paste(src, pos, mask)
+
+    # overlay brand cues (very subtle so the main figure stays dominant)
+    d = ImageDraw.Draw(base, 'RGBA')
+    draw_ai_spark(d, (int(size * 0.16), int(size * 0.18)), int(size * 0.06))
+    wf_top = int(size * 0.78)
+    draw_waveform(d, (int(size * 0.14), wf_top, int(size * 0.86), wf_top + int(size * 0.06)))
+
+    # outer soft ring for better small-size perception
+    ring = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+    dr = ImageDraw.Draw(ring)
+    dr.ellipse([int(size*0.03), int(size*0.03), int(size*0.97), int(size*0.97)], outline=(ACCENT2[0], ACCENT2[1], ACCENT2[2], 80), width=max(2, size//64))
+    ring = ring.filter(ImageFilter.GaussianBlur(max(1, size//128)))
+    base.alpha_composite(ring)
+
+    return base
+
+
 def ensure_dirs():
     OUT_DIR.mkdir(exist_ok=True)
     RES_DIR.mkdir(parents=True, exist_ok=True)
@@ -127,8 +180,11 @@ def ensure_dirs():
 
 def main():
     ensure_dirs()
-    master = compose_base(512)
-    master = overlay_mascot(master)
+    if SOURCE_UPLOAD.exists():
+        master = compose_main_from_upload(512)
+    else:
+        master = compose_base(512)
+        master = overlay_mascot(master)
 
     png_paths = []
     for s in SIZES:
