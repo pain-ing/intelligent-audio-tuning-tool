@@ -32,6 +32,7 @@
     "forceCodeSigning": false,
     "electronVersion": "27.3.11",
     "win": {
+      "icon": "resources/icon.ico",
       "target": "portable",
       "requestedExecutionLevel": "asInvoker"
     },

@@ -18,6 +18,7 @@ try {
     $Shortcut.TargetPath = $sourceExe
     $Shortcut.WorkingDirectory = $workingDir
     $Shortcut.Description = "AudioTuner Desktop App v1.0.0 - 原生桌面应用程序"
+    $Shortcut.IconLocation = "D:\Mituanapp2\icons\AudioTuner.ico,0"
     $Shortcut.Save()
     Write-Host "Desktop shortcut created: $userDesktopPath" -ForegroundColor Green
 } catch {
