@@ -88,6 +88,13 @@ packaging/desktop/*.zip
 *.asar
 *.nupkg
 
+
+# Release artifacts
+*.zip
+installer/*.exe
+*.msi
+*.dmg
+
 # Memory benchmarks and test results
 memory_benchmark_results.json
 *_results.json
