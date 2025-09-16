@@ -3,6 +3,19 @@
 [![CI](https://github.com/pain-ing/intelligent-audio-tuning-tool/actions/workflows/ci.yml/badge.svg)](https://github.com/pain-ing/intelligent-audio-tuning-tool/actions/workflows/ci.yml)
 
 
+
+## 下载与安装
+
+- 稳定版发布页（v1.0.0）：https://github.com/pain-ing/intelligent-audio-tuning-tool/releases/tag/v1.0.0
+- 直接下载（Windows 64 位，便携 ZIP，约 240 MB）：
+  - https://github.com/pain-ing/intelligent-audio-tuning-tool/releases/download/v1.0.0/AudioTuner-Desktop-v1.0.0-Release.zip
+- SHA256 校验：
+  - ceaf311c217d8e51fd55c6e8c9b8e76fd470961d3c1045c53885727c2f370b92
+
+使用方法：下载并解压 ZIP，双击运行解压目录中的 `AudioTuner-Desktop.exe` 即可。
+最低要求：Windows 7/8/10/11（64 位）、2GB 内存、500MB 可用磁盘空间。
+
+
 基于参考音频自动调音的智能工具，支持任意时长音频处理。
 
 ## 快速开始
