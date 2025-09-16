@@ -1,0 +1,62 @@
+{
+  "enabled": false,
+  "executable_path": null,
+  "timeout_seconds": 300,
+  "use_script_mode": true,
+  "template_directory": null,
+  "fallback_to_default": true,
+  "max_file_size_mb": 500.0,
+  "parallel_processing": false,
+  "memory_limit_mb": 1024.0,
+  "output_format": "wav",
+  "output_bit_depth": 24,
+  "output_sample_rate": null,
+  "auto_detect_on_startup": true,
+  "log_level": "INFO",
+  "supported_formats": [".wav", ".mp3", ".flac", ".aiff", ".m4a", ".ogg"],
+  "default_effects": {
+    "eq": {
+      "enabled": true,
+      "type": "parametric_eq",
+      "bands": []
+    },
+    "compression": {
+      "enabled": true,
+      "type": "multiband_compressor",
+      "threshold": -20,
+      "ratio": 4.0,
+      "attack": 10,
+      "release": 100
+    },
+    "reverb": {
+      "enabled": false,
+      "type": "convolution_reverb",
+      "impulse_response": null,
+      "wet_level": 0.3,
+      "dry_level": 0.7
+    },
+    "limiter": {
+      "enabled": true,
+      "type": "adaptive_limiter",
+      "ceiling": -0.1,
+      "release": 50
+    },
+    "stereo": {
+      "enabled": false,
+      "type": "stereo_width",
+      "width": 1.0
+    }
+  },
+  "performance": {
+    "chunk_size_seconds": 30,
+    "max_concurrent_processes": 1,
+    "memory_monitoring": true,
+    "temp_file_cleanup": true
+  },
+  "compatibility": {
+    "min_audition_version": "2019.0",
+    "supported_platforms": ["windows", "darwin"],
+    "script_engine": "extendscript",
+    "command_line_fallback": true
+  }
+}

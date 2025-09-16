@@ -12,7 +12,7 @@ from urllib.parse import urlparse
 # Import our audio processing modules
 from app.audio_analysis import analyzer
 from app.parameter_inversion import ParameterInverter
-from app.audio_rendering import renderer
+from app.audio_rendering import renderer, create_audio_renderer
 
 # Import optimized Celery configuration
 try:
@@ -315,9 +315,9 @@ def invert_params(ref_features: Dict, tgt_features: Dict, mode: Literal["A", "B"
 
 @app.task
 @memory_optimized_task if OPTIMIZED_CELERY_AVAILABLE else lambda x: x
-def render_audio(in_key: str, style_params: Dict) -> tuple[str, Dict]:
+def render_audio(in_key: str, style_params: Dict, renderer_type: str = "default") -> tuple[str, Dict]:
     """Render audio with applied style parameters."""
-    logger.info(f"Rendering audio for {in_key}")
+    logger.info(f"Rendering audio for {in_key} using {renderer_type} renderer")
 
     # 创建临时文件
     with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp_input:
@@ -336,7 +336,8 @@ def render_audio(in_key: str, style_params: Dict) -> tuple[str, Dict]:
             in_hash = make_file_hash(input_path)
             import json, hashlib
             params_hash = hashlib.md5(json.dumps(style_params, sort_keys=True).encode()).hexdigest()
-            cache_key = f"v1:{in_hash}:{params_hash}"
+            renderer_hash = hashlib.md5(renderer_type.encode()).hexdigest()[:8]
+            cache_key = f"v1:{in_hash}:{params_hash}:{renderer_hash}"
             cached = cache_get("render", cache_key)
             if cached and isinstance(cached, dict) and cached.get("out_key"):
                 logger.info("Render cache hit")
@@ -344,8 +345,16 @@ def render_audio(in_key: str, style_params: Dict) -> tuple[str, Dict]:
         except Exception:
             cached = None
 
-        # 使用真实的音频渲染
-        metrics = renderer.render_audio(input_path, output_path, style_params)
+        # 创建指定类型的渲染器
+        audio_renderer = create_audio_renderer(renderer_type=renderer_type)
+
+        # 使用指定的渲染器进行音频渲染
+        metrics = audio_renderer.render_audio(input_path, output_path, style_params)
+
+        # 记录渲染器信息
+        logger.info(f"Used renderer: {audio_renderer.renderer_type}")
+        if hasattr(audio_renderer, 'audition_renderer') and audio_renderer.audition_renderer:
+            logger.info("Adobe Audition rendering completed successfully")
 
         # 生成输出 key（可改为基于哈希的确定性 key，以便对象存储去重）
         out_key = f"processed/{uuid.uuid4().hex}.wav"

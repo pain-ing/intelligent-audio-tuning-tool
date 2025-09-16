@@ -1,0 +1,45 @@
+{
+  "audition": {
+    "enabled": true,
+    "auto_detect": true,
+    "fallback_enabled": true,
+    "development_mode": true,
+    "mock_mode": false,
+    "log_level": "DEBUG",
+    "timeout_seconds": 600,
+    "max_retries": 3,
+    "retry_delay_seconds": 5
+  },
+  "testing": {
+    "test_audio_files": [
+      "tests/fixtures/test_audio_mono.wav",
+      "tests/fixtures/test_audio_stereo.wav",
+      "tests/fixtures/test_audio_short.wav"
+    ],
+    "output_directory": "tests/output",
+    "cleanup_after_test": true,
+    "performance_benchmarks": true,
+    "generate_test_reports": true
+  },
+  "development": {
+    "hot_reload": true,
+    "debug_scripts": true,
+    "save_intermediate_files": true,
+    "verbose_logging": true,
+    "profiling_enabled": true,
+    "memory_monitoring": true
+  },
+  "integration": {
+    "validate_installation": true,
+    "check_version_compatibility": true,
+    "test_script_execution": true,
+    "benchmark_performance": true,
+    "stress_test_enabled": false
+  },
+  "paths": {
+    "test_data_dir": "tests/data",
+    "temp_dir": "temp/audition",
+    "log_dir": "logs/audition",
+    "backup_dir": "backup/audition"
+  }
+}

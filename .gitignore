@@ -71,3 +71,36 @@ Icon?
 *.old
 ~$*
 
+# Desktop Application Build
+AudioTuner-Desktop.exe
+*.exe
+packaging/desktop/node_modules/
+packaging/desktop/dist*/
+packaging/desktop/out_build*/
+packaging/desktop/release/
+packaging/desktop/build/
+packaging/desktop/vendor/python/
+packaging/desktop/vendor/ffmpeg/
+packaging/desktop/vendor/wheels/
+packaging/desktop/*.zip
+
+# Large binary files
+*.asar
+*.nupkg
+
+# Memory benchmarks and test results
+memory_benchmark_results.json
+*_results.json
+*_results.md
+
+# Augment AI cache
+.augment/
+
+# Local data directories
+data/storage/
+data/batch_storage/
+cache/
+
+# Test databases
+test.db
+

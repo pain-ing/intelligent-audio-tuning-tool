@@ -1,0 +1,95 @@
+{
+  "name": "audio-tuner-desktop",
+  "version": "1.0.0",
+  "description": "Audio Tuner Desktop Application",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "clean": "node -e \"try{require('fs').rmSync('dist',{recursive:true,force:true})}catch(e){}; try{require('fs').rmSync('release',{recursive:true,force:true})}catch(e){}; try{require('fs').rmSync('out_build',{recursive:true,force:true})}catch(e){}\"",
+    "pack": "npm run clean && electron-builder --dir",
+    "build": "electron-builder --publish=never",
+    "build:prepackaged": "electron-builder --win portable --publish=never --prepackaged out_build/win-unpacked"
+  },
+  "keywords": ["audio", "tuner", "desktop"],
+  "author": "Audio Tuner Team",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^27.3.11",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.audiotuner.desktop",
+    "productName": "Audio Tuner",
+    "directories": {
+      "output": "dist_rf5"
+    },
+    "files": [
+      "src/**/*",
+      "resources/**/*",
+      "node_modules/**/*"
+    ],
+    "forceCodeSigning": false,
+    "electronVersion": "27.3.11",
+    "win": {
+      "target": "portable",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "extraResources": [
+      {
+        "from": "../../src",
+        "to": "src",
+        "filter": [
+          "**/*",
+          "!**/__pycache__",
+          "!**/*.pyc",
+          "!**/venv",
+          "!**/node_modules",
+          "!**/.git"
+        ]
+      },
+      {
+        "from": "../../api",
+        "to": "api",
+        "filter": [
+          "**/*",
+          "!**/__pycache__",
+          "!**/*.pyc",
+          "!**/venv",
+          "!**/node_modules",
+          "!**/.git"
+        ]
+      },
+      {
+        "from": "../../worker",
+        "to": "worker",
+        "filter": [
+          "**/*",
+          "!**/__pycache__",
+          "!**/*.pyc",
+          "!**/venv",
+          "!**/.git"
+        ]
+      },
+      {
+        "from": "../../frontend/build",
+        "to": "frontend",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "vendor/python",
+        "to": "python",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "vendor/ffmpeg",
+        "to": "ffmpeg",
+        "filter": ["**/*"]
+      }
+    ],
+
+    "portable": {
+      "artifactName": "AudioTuner-Portable-${version}.exe"
+    }
+  }
+}

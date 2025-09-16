@@ -1,0 +1,70 @@
+{
+  "name": "audio-tuner-desktop",
+  "version": "1.0.0",
+  "description": "Audio Tuner Desktop Application",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder --publish=never",
+    "pack": "electron-builder --dir"
+  },
+  "keywords": ["audio", "tuner", "desktop"],
+  "author": "Audio Tuner Team",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^27.3.11",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.audiotuner.desktop",
+    "productName": "Audio Tuner",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "resources/**/*",
+      "node_modules/**/*"
+    ],
+    "forceCodeSigning": false,
+    "extraResources": [
+      {
+        "from": "../../api",
+        "to": "api",
+        "filter": [
+          "**/*",
+          "!**/__pycache__",
+          "!**/*.pyc",
+          "!**/venv",
+          "!**/node_modules",
+          "!**/.git"
+        ]
+      },
+      {
+        "from": "../../worker",
+        "to": "worker",
+        "filter": [
+          "**/*",
+          "!**/__pycache__",
+          "!**/*.pyc",
+          "!**/venv",
+          "!**/.git"
+        ]
+      },
+      {
+        "from": "../../frontend/build",
+        "to": "frontend",
+        "filter": ["**/*"]
+      }
+    ],
+    "win": {
+      "target": "portable",
+      "requestedExecutionLevel": "asInvoker",
+      "sign": false
+    },
+    "portable": {
+      "artifactName": "AudioTuner-Portable-${version}.exe"
+    }
+  }
+}

@@ -8,6 +8,8 @@ import librosa
 import soundfile as sf
 from typing import Iterator, Tuple, Optional, Dict, Any
 import logging
+import time
+import os
 import gc
 import psutil
 from contextlib import contextmanager
@@ -217,76 +219,359 @@ def memory_efficient_audio_processing(max_memory_mb: float = 512.0):
         gc.collect()
 
 class StreamingAudioProcessor:
-    """流式音频处理器"""
-    
+    """流式音频处理器（优化版本）"""
+
     def __init__(self, max_memory_mb: float = 512.0):
         self.loader = MemoryAwareAudioLoader(max_memory_mb=max_memory_mb)
         self.dtype = np.float32
+
+        # 性能统计
+        self.processing_stats = {
+            "chunks_processed": 0,
+            "total_processing_time": 0.0,
+            "memory_peaks": [],
+            "error_count": 0,
+            "throughput_mb_per_sec": 0.0
+        }
+
+        # 并行处理配置
+        self.enable_parallel = True
+        self.max_workers = min(4, os.cpu_count() or 1)
+
+        # 缓存配置
+        self.enable_caching = True
+        self.cache_size_mb = min(max_memory_mb * 0.2, 100.0)  # 20%内存用于缓存，最大100MB
     
-    def process_audio_streaming(self, file_path: str, 
-                              processor_func, 
+    def process_audio_streaming(self, file_path: str,
+                              processor_func,
                               output_path: str = None,
                               **kwargs) -> Dict[str, Any]:
         """
-        流式处理音频文件
-        
+        流式处理音频文件（优化版本）
+
         Args:
             file_path: 输入音频文件路径
             processor_func: 处理函数，接收AudioChunk并返回处理后的数据
             output_path: 输出文件路径（可选）
             **kwargs: 传递给处理函数的额外参数
-            
+
         Returns:
             Dict: 处理结果统计
         """
-        logger.info(f"开始流式处理音频: {file_path}")
-        
+        import time
+        import psutil
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        start_time = time.time()
+        logger.info(f"开始优化流式处理音频: {file_path}")
+
+        # 重置统计信息
+        self.processing_stats = {
+            "chunks_processed": 0,
+            "total_processing_time": 0.0,
+            "memory_peaks": [],
+            "error_count": 0,
+            "throughput_mb_per_sec": 0.0
+        }
+
         chunks_iterator, audio_info = self.loader.load_audio_streaming(file_path)
-        
+
         processed_chunks = []
         total_processed_samples = 0
         chunk_count = 0
-        
+
+        # 获取初始内存使用
+        process = psutil.Process()
+        initial_memory = process.memory_info().rss / 1024 / 1024
+
         try:
-            for chunk in chunks_iterator:
-                logger.debug(f"处理音频块 {chunk_count + 1}")
-                
+            if self.enable_parallel and self.max_workers > 1:
+                # 并行处理模式
+                result = self._process_parallel(
+                    chunks_iterator, processor_func, output_path, audio_info, **kwargs
+                )
+            else:
+                # 串行处理模式
+                result = self._process_sequential(
+                    chunks_iterator, processor_func, output_path, audio_info, **kwargs
+                )
+
+            # 计算性能指标
+            processing_time = time.time() - start_time
+            final_memory = process.memory_info().rss / 1024 / 1024
+            memory_growth = final_memory - initial_memory
+
+            # 计算吞吐量
+            file_size_mb = os.path.getsize(file_path) / 1024 / 1024
+            throughput = file_size_mb / processing_time if processing_time > 0 else 0
+
+            # 更新统计信息
+            self.processing_stats.update({
+                "total_processing_time": processing_time,
+                "throughput_mb_per_sec": throughput,
+                "memory_growth_mb": memory_growth,
+                "peak_memory_mb": max(self.processing_stats["memory_peaks"]) if self.processing_stats["memory_peaks"] else final_memory
+            })
+
+            # 添加性能指标到结果
+            result.update({
+                "processing_time": processing_time,
+                "throughput_mb_per_sec": throughput,
+                "memory_growth_mb": memory_growth,
+                "performance_stats": self.processing_stats.copy()
+            })
+
+            logger.info(f"优化流式处理完成: 处理时间 {processing_time:.2f}s, "
+                       f"吞吐量 {throughput:.2f} MB/s, 内存增长 {memory_growth:.1f} MB")
+
+            return result
+
+        except Exception as e:
+            self.processing_stats["error_count"] += 1
+            logger.error(f"流式处理失败: {e}")
+            raise
+
+    def _process_sequential(self, chunks_iterator, processor_func, output_path, audio_info, **kwargs):
+        """串行处理模式"""
+        import psutil
+
+        processed_chunks = []
+        total_processed_samples = 0
+        chunk_count = 0
+        process = psutil.Process()
+
+        for chunk in chunks_iterator:
+            chunk_start_time = time.time()
+            logger.debug(f"处理音频块 {chunk_count + 1}")
+
+            try:
+                # 记录内存使用
+                current_memory = process.memory_info().rss / 1024 / 1024
+                self.processing_stats["memory_peaks"].append(current_memory)
+
                 # 应用处理函数
                 processed_chunk = processor_func(chunk, **kwargs)
-                
+
                 if output_path:
                     processed_chunks.append(processed_chunk)
-                
+
                 total_processed_samples += chunk.data.shape[1]
                 chunk_count += 1
-                
+
+                # 更新统计
+                chunk_time = time.time() - chunk_start_time
+                self.processing_stats["chunks_processed"] += 1
+                self.processing_stats["total_processing_time"] += chunk_time
+
                 # 定期进行垃圾回收
                 if chunk_count % 5 == 0:
                     gc.collect()
-            
-            # 如果需要保存输出
-            if output_path and processed_chunks:
-                self._save_processed_chunks(processed_chunks, output_path, audio_info)
-            
-            result = {
-                "total_chunks": chunk_count,
-                "total_samples": total_processed_samples,
-                "duration_seconds": total_processed_samples / self.loader.sample_rate,
-                "audio_info": audio_info
+
+            except Exception as e:
+                self.processing_stats["error_count"] += 1
+                logger.error(f"处理音频块 {chunk_count + 1} 失败: {e}")
+                raise
+
+        # 保存输出
+        if output_path and processed_chunks:
+            self._save_processed_chunks(processed_chunks, output_path, audio_info)
+
+        return {
+            "total_chunks": chunk_count,
+            "total_samples": total_processed_samples,
+            "duration_seconds": total_processed_samples / self.loader.sample_rate,
+            "audio_info": audio_info,
+            "processing_mode": "sequential"
+        }
+
+    def _process_parallel(self, chunks_iterator, processor_func, output_path, audio_info, **kwargs):
+        """并行处理模式"""
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        import psutil
+
+        # 收集所有块（为了并行处理）
+        chunks = list(chunks_iterator)
+        total_chunks = len(chunks)
+
+        if total_chunks == 0:
+            return {
+                "total_chunks": 0,
+                "total_samples": 0,
+                "duration_seconds": 0.0,
+                "audio_info": audio_info,
+                "processing_mode": "parallel"
             }
-            
-            logger.info(f"流式处理完成: 处理了 {chunk_count} 个块，"
-                       f"总计 {total_processed_samples} 个样本")
-            
-            return result
-            
-        except Exception as e:
-            logger.error(f"流式处理失败: {e}")
-            raise
-        finally:
-            # 清理内存
-            del processed_chunks
-            gc.collect()
+
+        logger.info(f"使用并行处理模式，{self.max_workers} 个工作线程处理 {total_chunks} 个块")
+
+        processed_chunks = [None] * total_chunks
+        total_processed_samples = 0
+        process = psutil.Process()
+
+        def process_chunk_with_index(chunk_index_pair):
+            """处理单个块的包装函数"""
+            chunk, index = chunk_index_pair
+            chunk_start_time = time.time()
+
+            try:
+                # 记录内存使用
+                current_memory = process.memory_info().rss / 1024 / 1024
+                self.processing_stats["memory_peaks"].append(current_memory)
+
+                # 应用处理函数
+                processed_chunk = processor_func(chunk, **kwargs)
+
+                # 更新统计
+                chunk_time = time.time() - chunk_start_time
+                self.processing_stats["chunks_processed"] += 1
+                self.processing_stats["total_processing_time"] += chunk_time
+
+                return index, processed_chunk, chunk.data.shape[1]
+
+            except Exception as e:
+                self.processing_stats["error_count"] += 1
+                logger.error(f"并行处理块 {index} 失败: {e}")
+                raise
+
+        # 使用线程池并行处理
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            # 提交所有任务
+            chunk_index_pairs = [(chunk, i) for i, chunk in enumerate(chunks)]
+            future_to_index = {
+                executor.submit(process_chunk_with_index, pair): pair[1]
+                for pair in chunk_index_pairs
+            }
+
+            # 收集结果
+            for future in as_completed(future_to_index):
+                try:
+                    index, processed_chunk, samples = future.result()
+                    processed_chunks[index] = processed_chunk
+                    total_processed_samples += samples
+                except Exception as e:
+                    logger.error(f"并行处理任务失败: {e}")
+                    raise
+
+        # 保存输出
+        if output_path:
+            # 过滤掉None值（如果有处理失败的块）
+            valid_chunks = [chunk for chunk in processed_chunks if chunk is not None]
+            if valid_chunks:
+                self._save_processed_chunks(valid_chunks, output_path, audio_info)
+
+        return {
+            "total_chunks": total_chunks,
+            "total_samples": total_processed_samples,
+            "duration_seconds": total_processed_samples / self.loader.sample_rate,
+            "audio_info": audio_info,
+            "processing_mode": "parallel",
+            "workers_used": self.max_workers
+        }
+
+    def configure_performance(self, **kwargs):
+        """配置性能参数"""
+        if "enable_parallel" in kwargs:
+            self.enable_parallel = kwargs["enable_parallel"]
+            logger.info(f"并行处理: {'启用' if self.enable_parallel else '禁用'}")
+
+        if "max_workers" in kwargs:
+            self.max_workers = min(kwargs["max_workers"], os.cpu_count() or 1)
+            logger.info(f"最大工作线程数: {self.max_workers}")
+
+        if "enable_caching" in kwargs:
+            self.enable_caching = kwargs["enable_caching"]
+            logger.info(f"缓存: {'启用' if self.enable_caching else '禁用'}")
+
+        if "cache_size_mb" in kwargs:
+            self.cache_size_mb = kwargs["cache_size_mb"]
+            logger.info(f"缓存大小: {self.cache_size_mb} MB")
+
+    def get_performance_stats(self) -> Dict[str, Any]:
+        """获取性能统计信息"""
+        stats = self.processing_stats.copy()
+
+        # 计算平均值
+        if stats["chunks_processed"] > 0:
+            stats["avg_chunk_processing_time"] = stats["total_processing_time"] / stats["chunks_processed"]
+        else:
+            stats["avg_chunk_processing_time"] = 0.0
+
+        # 计算成功率
+        total_attempts = stats["chunks_processed"] + stats["error_count"]
+        if total_attempts > 0:
+            stats["success_rate"] = (stats["chunks_processed"] / total_attempts) * 100
+        else:
+            stats["success_rate"] = 100.0
+
+        # 添加配置信息
+        stats["configuration"] = {
+            "enable_parallel": self.enable_parallel,
+            "max_workers": self.max_workers,
+            "enable_caching": self.enable_caching,
+            "cache_size_mb": self.cache_size_mb
+        }
+
+        return stats
+
+    def reset_stats(self):
+        """重置性能统计"""
+        self.processing_stats = {
+            "chunks_processed": 0,
+            "total_processing_time": 0.0,
+            "memory_peaks": [],
+            "error_count": 0,
+            "throughput_mb_per_sec": 0.0
+        }
+        logger.info("性能统计已重置")
+
+    def optimize_for_file_size(self, file_size_mb: float):
+        """根据文件大小优化处理参数"""
+        if file_size_mb < 10:
+            # 小文件：禁用并行处理
+            self.enable_parallel = False
+            self.max_workers = 1
+            logger.info("小文件优化：禁用并行处理")
+        elif file_size_mb < 100:
+            # 中等文件：适度并行
+            self.enable_parallel = True
+            self.max_workers = min(2, os.cpu_count() or 1)
+            logger.info("中等文件优化：适度并行处理")
+        else:
+            # 大文件：全并行
+            self.enable_parallel = True
+            self.max_workers = min(4, os.cpu_count() or 1)
+            logger.info("大文件优化：全并行处理")
+
+    def health_check(self) -> Dict[str, Any]:
+        """健康检查"""
+        health = {
+            "status": "healthy",
+            "issues": [],
+            "recommendations": []
+        }
+
+        # 检查错误率
+        stats = self.get_performance_stats()
+        if stats["success_rate"] < 90:
+            health["status"] = "degraded"
+            health["issues"].append(f"成功率较低: {stats['success_rate']:.1f}%")
+            health["recommendations"].append("检查输入数据质量和处理参数")
+
+        # 检查性能
+        if stats["throughput_mb_per_sec"] < 1.0 and stats["chunks_processed"] > 0:
+            health["status"] = "degraded"
+            health["issues"].append(f"处理速度较慢: {stats['throughput_mb_per_sec']:.2f} MB/s")
+            health["recommendations"].append("考虑启用并行处理或优化处理函数")
+
+        # 检查内存使用
+        if stats["memory_peaks"]:
+            max_memory = max(stats["memory_peaks"])
+            if max_memory > self.loader.max_memory_mb * 1.5:
+                health["status"] = "warning"
+                health["issues"].append(f"内存使用超出预期: {max_memory:.1f} MB")
+                health["recommendations"].append("考虑减少块大小或增加内存限制")
+
+        return health
     
     def _save_processed_chunks(self, chunks: list, output_path: str, audio_info: Dict):
         """保存处理后的音频块到文件"""

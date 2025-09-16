@@ -1,6 +1,6 @@
 """
 对象存储服务模块
-支持 MinIO、AWS S3、腾讯云 COS 等兼容 S3 的对象存储
+支持 MinIO、AWS S3、腾讯云 COS 等兼容 S3 的对象存储；并在桌面模式下支持本地文件系统存储
 """
 
 import os
@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from typing import Dict, Optional, Tuple
 import logging
 
+# S3 相关依赖按需使用（桌面本地模式不会触发初始化）
 import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
 from botocore.config import Config
@@ -18,22 +19,22 @@ from botocore.config import Config
 logger = logging.getLogger(__name__)
 
 class StorageService:
-    """对象存储服务"""
-    
+    """S3/MinIO 对象存储服务"""
+
     def __init__(self):
         self.endpoint_url = os.getenv("STORAGE_ENDPOINT_URL", "http://localhost:9000")
         self.access_key = os.getenv("STORAGE_ACCESS_KEY", "minioadmin")
         self.secret_key = os.getenv("STORAGE_SECRET_KEY", "minioadmin")
         self.bucket_name = os.getenv("STORAGE_BUCKET_NAME", "audio-files")
         self.region = os.getenv("STORAGE_REGION", "us-east-1")
-        
+
         # 配置 S3 客户端
         self.config = Config(
             region_name=self.region,
             retries={'max_attempts': 3, 'mode': 'adaptive'},
             max_pool_connections=50
         )
-        
+
         try:
             self.s3_client = boto3.client(
                 's3',
@@ -42,16 +43,117 @@ class StorageService:
                 aws_secret_access_key=self.secret_key,
                 config=self.config
             )
-            
+
             # 确保存储桶存在
             self._ensure_bucket_exists()
-            
+
             logger.info(f"Storage service initialized: {self.endpoint_url}/{self.bucket_name}")
-            
+
         except Exception as e:
             logger.error(f"Failed to initialize storage service: {e}")
             raise
-    
+
+class LocalStorageService:
+    """桌面/本地文件系统存储服务"""
+    def __init__(self):
+        # Windows: 优先使用 %APPDATA%\AudioTuner\objects
+        appdata = os.getenv("APPDATA")
+        default_dir = os.path.join(appdata, "AudioTuner", "objects") if appdata else os.path.join(os.path.expanduser("~"), ".audio_tuner", "objects")
+        self.base_dir = os.getenv("STORAGE_LOCAL_DIR", default_dir)
+        try:
+            os.makedirs(self.base_dir, exist_ok=True)
+        except Exception:
+            pass
+        self.bucket_name = "local"
+        logger.info(f"Local storage initialized at: {self.base_dir}")
+
+    def _full_path(self, object_key: str) -> str:
+        safe_key = object_key.replace("..", "").lstrip("/\\")
+        return os.path.join(self.base_dir, safe_key)
+
+    def generate_object_key(self, file_extension: str, prefix: str = "uploads") -> str:
+        if not file_extension.startswith('.'):
+            file_extension = '.' + file_extension
+        timestamp = datetime.now().strftime("%Y%m%d")
+        unique_id = str(uuid.uuid4())
+        return f"{prefix}/{timestamp}/{unique_id}{file_extension}"
+
+    def generate_upload_signature(self, content_type: str, file_extension: str, expires_in: int = 3600) -> Dict:
+        object_key = self.generate_object_key(file_extension)
+        # 本地上传走 API 的 PUT 端点
+        return {
+            "upload_url": f"/local-uploads/{object_key}",
+            "download_url": f"/files/{object_key}",
+            "object_key": object_key,
+            "bucket": self.bucket_name,
+            "expires_in": expires_in,
+            "content_type": content_type,
+        }
+
+    def generate_download_url(self, object_key: str, expires_in: int = 3600) -> str:
+        # 本地直接通过静态路由访问
+        return f"/files/{object_key}"
+
+    def upload_file(self, file_path: str, object_key: str, content_type: str = None) -> str:
+        dst = self._full_path(object_key)
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        with open(file_path, 'rb') as src, open(dst, 'wb') as out:
+            out.write(src.read())
+        return object_key
+
+    def download_file(self, object_key: str, local_path: str) -> str:
+        src = self._full_path(object_key)
+        os.makedirs(os.path.dirname(local_path), exist_ok=True)
+        with open(src, 'rb') as fsrc, open(local_path, 'wb') as fdst:
+            fdst.write(fsrc.read())
+        return local_path
+
+    def delete_file(self, object_key: str) -> bool:
+        try:
+            os.remove(self._full_path(object_key))
+            return True
+        except FileNotFoundError:
+            return False
+        except Exception:
+            return False
+
+    def file_exists(self, object_key: str) -> bool:
+        return os.path.exists(self._full_path(object_key))
+
+    def get_file_info(self, object_key: str) -> Optional[Dict]:
+        p = self._full_path(object_key)
+        if not os.path.exists(p):
+            return None
+        st = os.stat(p)
+        return {
+            "object_key": object_key,
+            "size": st.st_size,
+            "content_type": mimetypes.guess_type(p)[0] or "application/octet-stream",
+            "last_modified": datetime.fromtimestamp(st.st_mtime),
+            "etag": hashlib.md5(f"{object_key}:{st.st_mtime}".encode()).hexdigest(),
+            "metadata": {}
+        }
+
+    def list_files(self, prefix: str = "", max_keys: int = 1000) -> list:
+        files = []
+        base = self._full_path(prefix) if prefix else self.base_dir
+        if not os.path.exists(base):
+            return files
+        for root, _, filenames in os.walk(base):
+            for name in filenames:
+                rel = os.path.relpath(os.path.join(root, name), self.base_dir).replace("\\", "/")
+                info = self.get_file_info(rel)
+                if info:
+                    files.append({
+                        "object_key": rel,
+                        "size": info["size"],
+                        "last_modified": info["last_modified"],
+                        "etag": info["etag"],
+                    })
+                if len(files) >= max_keys:
+                    return files
+        return files
+
     def _ensure_bucket_exists(self):
         """确保存储桶存在"""
         try:
@@ -354,5 +456,9 @@ class StorageService:
             logger.error(f"Failed to complete multipart upload: {e}")
             raise
 
-# 全局存储服务实例
-storage_service = StorageService()
+# 全局存储服务实例（根据运行模式选择）
+_mode = (os.getenv("STORAGE_MODE") or os.getenv("APP_MODE") or "").lower()
+if _mode in ("desktop", "local"):
+    storage_service = LocalStorageService()
+else:
+    storage_service = StorageService()
