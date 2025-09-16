@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import { Card, Row, Col, Statistic, Typography, Space } from 'antd';
 import { SoundOutlined, BarChartOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
@@ -6,7 +6,7 @@ import ReactECharts from 'echarts-for-react';
 const { Title, Text } = Typography;
 
 const VisualizationPanel = ({ jobStatus, style }) => {
-  const chartRef = useRef(null);
+  // const chartRef = useRef(null);
 
   // 生成频谱图数据
   const getSpectrumData = () => {

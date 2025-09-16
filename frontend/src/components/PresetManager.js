@@ -1,15 +1,63 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Card, List, Button, Modal, Form, Input, Select, Space, 
-  Typography, message, Popconfirm, Tag, Row, Col 
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  Card, List, Button, Modal, Form, Input, Select, Space,
+  Typography, message, Popconfirm, Tag, Row, Col
 } from 'antd';
-import { 
-  PlusOutlined, EditOutlined, DeleteOutlined, 
-  SaveOutlined, StarOutlined, StarFilled 
+import {
+  PlusOutlined, EditOutlined, DeleteOutlined,
+  SaveOutlined, StarOutlined, StarFilled
 } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
+// 模拟预设数据（模块级常量，避免 useEffect 依赖警告）
+const mockPresets = [
+  {
+    id: '1',
+    name: '人声增强',
+    description: '增强人声清晰度，适用于播客和语音录制',
+    category: 'vocal',
+    is_favorite: true,
+    parameters: {
+      eq: [
+        { type: 'peaking', f_hz: 2000, gain_db: 3, q: 1.5 },
+        { type: 'peaking', f_hz: 5000, gain_db: 2, q: 1.0 }
+      ],
+      lufs: { target_lufs: -16 },
+      compression: { enabled: true, threshold_db: -18, ratio: 3 }
+    },
+    created_at: '2024-01-15'
+  },
+  {
+    id: '2',
+    name: '音乐母带',
+    description: '适用于音乐制作的母带处理预设',
+    category: 'music',
+    is_favorite: false,
+    parameters: {
+      eq: [
+        { type: 'peaking', f_hz: 100, gain_db: 1, q: 0.7 },
+        { type: 'peaking', f_hz: 10000, gain_db: 1.5, q: 1.2 }
+      ],
+      lufs: { target_lufs: -14 },
+      limiter: { tp_db: -1, release_ms: 50 }
+    },
+    created_at: '2024-01-10'
+  },
+  {
+    id: '3',
+    name: '广播标准',
+    description: '符合广播电台标准的响度处理',
+    category: 'broadcast',
+    is_favorite: false,
+    parameters: {
+      lufs: { target_lufs: -23 },
+      limiter: { tp_db: -1, release_ms: 100 },
+      compression: { enabled: true, threshold_db: -20, ratio: 2.5 }
+    },
+    created_at: '2024-01-05'
+  }
+];
 
 const PresetManager = () => {
   const [presets, setPresets] = useState([]);
@@ -18,60 +66,11 @@ const PresetManager = () => {
   const [editingPreset, setEditingPreset] = useState(null);
   const [form] = Form.useForm();
 
-  // 模拟预设数据
-  const mockPresets = [
-    {
-      id: '1',
-      name: '人声增强',
-      description: '增强人声清晰度，适用于播客和语音录制',
-      category: 'vocal',
-      is_favorite: true,
-      parameters: {
-        eq: [
-          { type: 'peaking', f_hz: 2000, gain_db: 3, q: 1.5 },
-          { type: 'peaking', f_hz: 5000, gain_db: 2, q: 1.0 }
-        ],
-        lufs: { target_lufs: -16 },
-        compression: { enabled: true, threshold_db: -18, ratio: 3 }
-      },
-      created_at: '2024-01-15'
-    },
-    {
-      id: '2',
-      name: '音乐母带',
-      description: '适用于音乐制作的母带处理预设',
-      category: 'music',
-      is_favorite: false,
-      parameters: {
-        eq: [
-          { type: 'peaking', f_hz: 100, gain_db: 1, q: 0.7 },
-          { type: 'peaking', f_hz: 10000, gain_db: 1.5, q: 1.2 }
-        ],
-        lufs: { target_lufs: -14 },
-        limiter: { tp_db: -1, release_ms: 50 }
-      },
-      created_at: '2024-01-10'
-    },
-    {
-      id: '3',
-      name: '广播标准',
-      description: '符合广播电台标准的响度处理',
-      category: 'broadcast',
-      is_favorite: false,
-      parameters: {
-        lufs: { target_lufs: -23 },
-        limiter: { tp_db: -1, release_ms: 100 },
-        compression: { enabled: true, threshold_db: -20, ratio: 2.5 }
-      },
-      created_at: '2024-01-05'
-    }
-  ];
 
-  useEffect(() => {
-    loadPresets();
-  }, []);
 
-  const loadPresets = async () => {
+
+
+  const loadPresets = useCallback(async () => {
     setLoading(true);
     try {
       // 模拟 API 调用
@@ -83,13 +82,28 @@ const PresetManager = () => {
       message.error('加载预设失败');
       setLoading(false);
     }
-  };
+  }, []);
 
+  // 首次加载时拉取预设（将 loadPresets 作为依赖，避免 no-use-before-define）
+  useEffect(() => {
+    loadPresets();
+  }, [loadPresets]);
+
+/*
   const handleCreatePreset = () => {
+       useEffect 
+
+    setEditingPreset(null);
+    form.resetFields();
+    setModalVisible(true);
+*/
+
+  const onCreatePreset = () => {
     setEditingPreset(null);
     form.resetFields();
     setModalVisible(true);
   };
+
 
   const handleEditPreset = (preset) => {
     setEditingPreset(preset);
@@ -114,7 +128,7 @@ const PresetManager = () => {
   const handleToggleFavorite = async (id) => {
     try {
       // 模拟 API 调用
-      setPresets(presets.map(p => 
+      setPresets(presets.map(p =>
         p.id === id ? { ...p, is_favorite: !p.is_favorite } : p
       ));
       message.success('收藏状态已更新');
@@ -127,8 +141,8 @@ const PresetManager = () => {
     try {
       if (editingPreset) {
         // 编辑现有预设
-        setPresets(presets.map(p => 
-          p.id === editingPreset.id 
+        setPresets(presets.map(p =>
+          p.id === editingPreset.id
             ? { ...p, ...values, updated_at: new Date().toISOString().split('T')[0] }
             : p
         ));
@@ -236,7 +250,7 @@ const PresetManager = () => {
           </Space>
         }
         extra={
-          <Button type="primary" icon={<PlusOutlined />} onClick={handleCreatePreset}>
+          <Button type="primary" icon={<PlusOutlined />} onClick={onCreatePreset}>
             新建预设
           </Button>
         }
@@ -313,8 +327,8 @@ const PresetManager = () => {
             label="预设描述"
             rules={[{ required: true, message: '请输入预设描述' }]}
           >
-            <TextArea 
-              rows={3} 
+            <TextArea
+              rows={3}
               placeholder="描述这个预设的用途和特点"
             />
           </Form.Item>

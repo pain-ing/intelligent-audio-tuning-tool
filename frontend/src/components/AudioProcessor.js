@@ -1,10 +1,10 @@
 import React, { useState, useCallback } from 'react';
 import {
   Row, Col, Card, Button, Progress, Alert, Space, Typography,
-  Radio, Divider, message, Spin
+  Radio, Divider, message
 } from 'antd';
 import {
-  PlayCircleOutlined, PauseCircleOutlined, DownloadOutlined,
+  DownloadOutlined,
   SyncOutlined, CheckCircleOutlined, ExclamationCircleOutlined
 } from '@ant-design/icons';
 import FileUploader from './FileUploader';
@@ -20,7 +20,6 @@ const AudioProcessor = () => {
   const [referenceFile, setReferenceFile] = useState(null);
   const [targetFile, setTargetFile] = useState(null);
   const [processing, setProcessing] = useState(false);
-  const [jobId, setJobId] = useState(null);
   const [jobStatus, setJobStatus] = useState(null);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState(null);
@@ -141,8 +140,6 @@ const AudioProcessor = () => {
         tgt_key: targetFile.key
       });
 
-      setJobId(job.job_id);
-      
       // 开始轮询任务状态
       pollJobStatus(job.job_id);
       
@@ -188,7 +185,6 @@ const AudioProcessor = () => {
     setReferenceFile(null);
     setTargetFile(null);
     setProcessing(false);
-    setJobId(null);
     setJobStatus(null);
     setProgress(0);
     setResult(null);

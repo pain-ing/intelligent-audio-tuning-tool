@@ -36,7 +36,8 @@ os.environ.setdefault("DATA_DIR", data_dir)
 # 强制使用本地 SQLite 数据库（避免桌面模式误连远程 Postgres）
 sqlite_db_path = os.path.join(data_dir, "app.db")
 # 统一使用正斜杠，避免 SQLAlchemy 在 Windows 下路径解析问题
-sqlite_db_uri = f"sqlite:///{sqlite_db_path.replace('\\', '/')}"
+# 注意：GitHub Actions 上的 Python 解析 f-string 时对反斜杠更严格，这里改用 pathlib 规避
+sqlite_db_uri = f"sqlite:///{Path(sqlite_db_path).as_posix()}"
 os.environ["DATABASE_URL"] = sqlite_db_uri
 
 # 配置日志

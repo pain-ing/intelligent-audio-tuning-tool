@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Card, Row, Col, Slider, InputNumber, Switch, Button, 
-  Collapse, Space, Typography, Divider, message 
+  Card, Row, Col, Slider, InputNumber, Switch, Button,
+  Collapse, Space, Typography, message
 } from 'antd';
 import { 
   SettingOutlined, SoundOutlined, ThunderboltOutlined,
@@ -9,7 +9,7 @@ import {
 } from '@ant-design/icons';
 
 const { Panel } = Collapse;
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 const ParameterEditor = ({ parameters, onParametersChange, style }) => {
   const [params, setParams] = useState(parameters || {});
