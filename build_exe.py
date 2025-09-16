@@ -121,10 +121,18 @@ hiddenimports = [
     'charset_normalizer',
     'idna',
     'urllib3',
+    # 桌面应用相关
+    'webview',
+    'pythonnet',
+    'proxy_tools',
+    'bottle',
+    'clr_loader',
+    'tkinter',
+    'tkinter.messagebox',
 ]
 
 a = Analysis(
-    [r"{self.src_dir / 'desktop_main.py'}"],
+    [r"{self.src_dir / 'desktop_app.py'}"],
     pathex=[str(root_dir), str(root_dir / "src")],
     binaries=[],
     datas=datas,
@@ -148,7 +156,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='AudioTuner-Desktop-Fixed',
+    name='AudioTuner-Desktop-App',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -200,15 +208,15 @@ exe = EXE(
         logger.info(f"STDOUT: {result.stdout}")
         
         # 检查生成的可执行文件
-        exe_path = self.root_dir / "dist" / "AudioTuner-Desktop-Fixed.exe"
+        exe_path = self.root_dir / "dist" / "AudioTuner-Desktop-App.exe"
         if exe_path.exists():
             logger.info(f"Executable created successfully: {exe_path}")
-            
-            # 复制到根目录
-            target_path = self.root_dir / "AudioTuner-Desktop.exe"
+
+            # 复制到根目录，命名为桌面应用版本
+            target_path = self.root_dir / "AudioTuner-Desktop-App.exe"
             shutil.copy2(exe_path, target_path)
-            logger.info(f"Executable copied to: {target_path}")
-            
+            logger.info(f"Desktop app executable copied to: {target_path}")
+
             return True
         else:
             logger.error("Executable not found after build")
