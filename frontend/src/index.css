@@ -5,7 +5,9 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #f5f5f5;
+  background: radial-gradient(ellipse at center, #102832 0%, #0A191E 100%);
+  color: #B4FFF0;
+  min-height: 100vh;
 }
 
 code {
@@ -15,34 +17,39 @@ code {
 
 .ant-layout {
   min-height: 100vh;
+  background: transparent;
 }
 
 .upload-area {
-  border: 2px dashed #d9d9d9;
-  border-radius: 8px;
+  border: 2px dashed #46BEAA;
+  border-radius: 12px;
   padding: 40px;
   text-align: center;
-  background: #fafafa;
+  background: rgba(16, 40, 50, 0.6);
   transition: all 0.3s;
   cursor: pointer;
+  color: #B4FFF0;
 }
 
 .upload-area:hover {
-  border-color: #1890ff;
-  background: #f0f8ff;
+  border-color: #3CE6BE;
+  background: rgba(16, 40, 50, 0.8);
+  box-shadow: 0 0 20px rgba(60, 230, 190, 0.3);
 }
 
 .upload-area.dragover {
-  border-color: #1890ff;
-  background: #e6f7ff;
+  border-color: #3CE6BE;
+  background: rgba(16, 40, 50, 0.9);
+  box-shadow: 0 0 30px rgba(60, 230, 190, 0.5);
 }
 
 .audio-player {
   margin: 16px 0;
   padding: 16px;
-  border: 1px solid #d9d9d9;
-  border-radius: 8px;
-  background: white;
+  border: 1px solid #46BEAA;
+  border-radius: 12px;
+  background: rgba(16, 40, 50, 0.7);
+  color: #B4FFF0;
 }
 
 .progress-container {
@@ -52,17 +59,19 @@ code {
 .visualization-container {
   margin: 24px 0;
   padding: 16px;
-  border: 1px solid #d9d9d9;
-  border-radius: 8px;
-  background: white;
+  border: 1px solid #46BEAA;
+  border-radius: 12px;
+  background: rgba(16, 40, 50, 0.7);
+  color: #B4FFF0;
 }
 
 .parameter-editor {
   margin: 24px 0;
   padding: 16px;
-  border: 1px solid #d9d9d9;
-  border-radius: 8px;
-  background: white;
+  border: 1px solid #46BEAA;
+  border-radius: 12px;
+  background: rgba(16, 40, 50, 0.7);
+  color: #B4FFF0;
 }
 
 .ab-comparison {
@@ -74,9 +83,10 @@ code {
 .ab-comparison .audio-section {
   flex: 1;
   padding: 16px;
-  border: 1px solid #d9d9d9;
-  border-radius: 8px;
-  background: white;
+  border: 1px solid #46BEAA;
+  border-radius: 12px;
+  background: rgba(16, 40, 50, 0.7);
+  color: #B4FFF0;
 }
 
 .status-indicator {
@@ -90,21 +100,175 @@ code {
 }
 
 .status-pending {
-  background: #fff7e6;
+  background: rgba(250, 140, 22, 0.2);
   color: #fa8c16;
+  border: 1px solid rgba(250, 140, 22, 0.3);
 }
 
 .status-processing {
-  background: #e6f7ff;
-  color: #1890ff;
+  background: rgba(60, 230, 190, 0.2);
+  color: #3CE6BE;
+  border: 1px solid rgba(60, 230, 190, 0.3);
 }
 
 .status-completed {
-  background: #f6ffed;
+  background: rgba(82, 196, 26, 0.2);
   color: #52c41a;
+  border: 1px solid rgba(82, 196, 26, 0.3);
 }
 
 .status-failed {
-  background: #fff2f0;
+  background: rgba(255, 77, 79, 0.2);
   color: #ff4d4f;
+  border: 1px solid rgba(255, 77, 79, 0.3);
+}
+
+/* Ant Design 深色主题覆盖 */
+.ant-card {
+  background: rgba(16, 40, 50, 0.7) !important;
+  border: 1px solid #46BEAA !important;
+  border-radius: 12px !important;
+  color: #B4FFF0 !important;
+}
+
+.ant-card-head {
+  background: rgba(16, 40, 50, 0.9) !important;
+  border-bottom: 1px solid #46BEAA !important;
+  color: #B4FFF0 !important;
+}
+
+.ant-card-head-title {
+  color: #B4FFF0 !important;
+}
+
+.ant-btn-primary {
+  background: linear-gradient(135deg, #3CE6BE 0%, #46BEAA 100%) !important;
+  border: none !important;
+  color: #0A191E !important;
+  font-weight: 600 !important;
+  box-shadow: 0 4px 12px rgba(60, 230, 190, 0.3) !important;
+  transition: all 0.3s ease !important;
+}
+
+.ant-btn-primary:hover {
+  background: linear-gradient(135deg, #46BEAA 0%, #3CE6BE 100%) !important;
+  box-shadow: 0 6px 20px rgba(60, 230, 190, 0.5) !important;
+  transform: translateY(-2px) !important;
+}
+
+.ant-btn-default {
+  background: rgba(16, 40, 50, 0.8) !important;
+  border: 1px solid #46BEAA !important;
+  color: #B4FFF0 !important;
+}
+
+.ant-btn-default:hover {
+  background: rgba(70, 190, 170, 0.2) !important;
+  border-color: #3CE6BE !important;
+  color: #3CE6BE !important;
+}
+
+.ant-input {
+  background: rgba(16, 40, 50, 0.8) !important;
+  border: 1px solid #46BEAA !important;
+  color: #B4FFF0 !important;
+  border-radius: 8px !important;
+}
+
+.ant-input:focus {
+  border-color: #3CE6BE !important;
+  box-shadow: 0 0 8px rgba(60, 230, 190, 0.4) !important;
+}
+
+.ant-select {
+  color: #B4FFF0 !important;
+}
+
+.ant-select-selector {
+  background: rgba(16, 40, 50, 0.8) !important;
+  border: 1px solid #46BEAA !important;
+  color: #B4FFF0 !important;
+}
+
+.ant-select-focused .ant-select-selector {
+  border-color: #3CE6BE !important;
+  box-shadow: 0 0 8px rgba(60, 230, 190, 0.4) !important;
+}
+
+.ant-progress-bg {
+  background: linear-gradient(90deg, #3CE6BE 0%, #46BEAA 100%) !important;
+}
+
+.ant-progress-text {
+  color: #B4FFF0 !important;
+}
+
+.ant-slider-rail {
+  background: rgba(70, 190, 170, 0.3) !important;
+}
+
+.ant-slider-track {
+  background: linear-gradient(90deg, #3CE6BE 0%, #46BEAA 100%) !important;
+}
+
+.ant-slider-handle {
+  border: 2px solid #3CE6BE !important;
+  background: #3CE6BE !important;
+  box-shadow: 0 0 8px rgba(60, 230, 190, 0.6) !important;
+}
+
+.ant-radio-button-wrapper {
+  background: rgba(16, 40, 50, 0.8) !important;
+  border: 1px solid #46BEAA !important;
+  color: #B4FFF0 !important;
+}
+
+.ant-radio-button-wrapper-checked {
+  background: linear-gradient(135deg, #3CE6BE 0%, #46BEAA 100%) !important;
+  border-color: #3CE6BE !important;
+  color: #0A191E !important;
+  font-weight: 600 !important;
+}
+
+.ant-radio-button-wrapper:hover {
+  border-color: #3CE6BE !important;
+  color: #3CE6BE !important;
+}
+
+.ant-alert {
+  background: rgba(16, 40, 50, 0.9) !important;
+  border: 1px solid #46BEAA !important;
+  border-radius: 8px !important;
+}
+
+.ant-alert-success {
+  background: rgba(82, 196, 26, 0.2) !important;
+  border-color: rgba(82, 196, 26, 0.5) !important;
+}
+
+.ant-alert-info {
+  background: rgba(60, 230, 190, 0.2) !important;
+  border-color: rgba(60, 230, 190, 0.5) !important;
+}
+
+.ant-alert-warning {
+  background: rgba(250, 140, 22, 0.2) !important;
+  border-color: rgba(250, 140, 22, 0.5) !important;
+}
+
+.ant-alert-error {
+  background: rgba(255, 77, 79, 0.2) !important;
+  border-color: rgba(255, 77, 79, 0.5) !important;
+}
+
+.ant-typography {
+  color: #B4FFF0 !important;
+}
+
+.ant-typography-title {
+  color: #B4FFF0 !important;
+}
+
+.ant-divider {
+  border-color: #46BEAA !important;
 }

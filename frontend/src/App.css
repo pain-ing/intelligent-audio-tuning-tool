@@ -1,11 +1,13 @@
 .app-layout {
   min-height: 100vh;
+  background: radial-gradient(ellipse at center, #102832 0%, #0A191E 100%);
 }
 
 .app-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #0A191E 0%, #102832 50%, #46BEAA 100%);
   padding: 0 24px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 20px rgba(60, 230, 190, 0.3);
+  border-bottom: 1px solid rgba(60, 230, 190, 0.2);
 }
 
 .header-content {
@@ -19,26 +21,33 @@
 .logo {
   display: flex;
   align-items: center;
-  color: white;
+  color: #B4FFF0;
+}
+
+.logo .anticon {
+  color: #3CE6BE;
+  filter: drop-shadow(0 0 8px rgba(60, 230, 190, 0.6));
 }
 
 .header-subtitle {
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(180, 255, 240, 0.8);
   font-size: 14px;
 }
 
 .app-content {
   padding: 24px;
-  background: #f5f5f5;
+  background: transparent;
 }
 
 .content-container {
   max-width: 1200px;
   margin: 0 auto;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  background: rgba(16, 40, 50, 0.8);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(70, 190, 170, 0.3);
   overflow: hidden;
+  backdrop-filter: blur(10px);
 }
 
 .main-tabs {
@@ -52,6 +61,20 @@
 .main-tabs .ant-tabs-tab {
   font-size: 16px;
   font-weight: 500;
+  color: #B4FFF0;
+}
+
+.main-tabs .ant-tabs-tab:hover {
+  color: #3CE6BE;
+}
+
+.main-tabs .ant-tabs-tab-active {
+  color: #3CE6BE !important;
+}
+
+.main-tabs .ant-tabs-ink-bar {
+  background: #3CE6BE;
+  box-shadow: 0 0 8px rgba(60, 230, 190, 0.6);
 }
 
 /* 响应式设计 */
