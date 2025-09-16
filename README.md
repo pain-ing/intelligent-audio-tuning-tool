@@ -1,6 +1,8 @@
 # 智能音频调音工具 (Audio Style Matching Tool)
 
 [![CI](https://github.com/pain-ing/intelligent-audio-tuning-tool/actions/workflows/ci.yml/badge.svg)](https://github.com/pain-ing/intelligent-audio-tuning-tool/actions/workflows/ci.yml)
+[![Download](https://img.shields.io/github/v/release/pain-ing/intelligent-audio-tuning-tool?label=download)](https://github.com/pain-ing/intelligent-audio-tuning-tool/releases/latest)
+
 
 
 
