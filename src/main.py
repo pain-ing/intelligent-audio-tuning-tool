@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse
 from src.core.config import config, AppMode
 from src.api.routes import router, audio_tuner_exception_handler
 from src.core.exceptions import AudioTunerException
+from src.utils.memory_optimizer import start_global_memory_monitoring, stop_global_memory_monitoring
 
 
 # 配置日志
@@ -31,16 +32,22 @@ async def lifespan(app: FastAPI):
     logger.info(f"Mode: {config.app_mode.value}")
     logger.info(f"Storage: {config.storage_mode.value}")
     logger.info(f"Cache: {config.cache_mode.value}")
-    
+
+    # 启动内存监控
+    start_global_memory_monitoring()
+    logger.info("Global memory monitoring started")
+
     # 启动时的初始化工作
     if config.app_mode == AppMode.DESKTOP:
         await _setup_desktop_mode()
     else:
         await _setup_cloud_mode()
-    
+
     yield
-    
+
     # 关闭时的清理工作
+    stop_global_memory_monitoring()
+    logger.info("Global memory monitoring stopped")
     logger.info("Shutting down application")
 
 

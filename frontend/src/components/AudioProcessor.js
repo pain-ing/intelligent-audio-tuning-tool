@@ -1,17 +1,20 @@
 import React, { useState, useCallback } from 'react';
 import {
   Row, Col, Card, Button, Progress, Alert, Space, Typography,
-  Radio, Divider, message
+  Radio, Divider
 } from 'antd';
 import {
   DownloadOutlined,
-  SyncOutlined, CheckCircleOutlined, ExclamationCircleOutlined
+  SyncOutlined, CheckCircleOutlined, ExclamationCircleOutlined, StopOutlined
 } from '@ant-design/icons';
 import FileUploader from './FileUploader';
 import AudioPlayer from './AudioPlayer';
 import VisualizationPanel from './VisualizationPanel';
 import ParameterEditor from './ParameterEditor';
+// import LoadingSpinner from './LoadingSpinner';
 import { audioAPI, uploadAPI } from '../services/api';
+import { useJobProgress } from '../hooks/useJobProgress';
+import ErrorHandler from '../utils/errorHandler';
 
 const { Title, Text } = Typography;
 
@@ -19,11 +22,20 @@ const AudioProcessor = () => {
   const [mode, setMode] = useState('A');
   const [referenceFile, setReferenceFile] = useState(null);
   const [targetFile, setTargetFile] = useState(null);
-  const [processing, setProcessing] = useState(false);
-  const [jobStatus, setJobStatus] = useState(null);
-  const [progress, setProgress] = useState(0);
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState(null);
+
+  // 使用新的进度管理Hook
+  const {
+    jobStatus,
+    progress,
+    processing,
+    error,
+    result,
+    startProcessing,
+    cancelProcessing,
+    resetState,
+    getStatusMessage,
+    canCancel
+  } = useJobProgress();
 
   // 上传进度状态
   const [uploadProgress, setUploadProgress] = useState({
@@ -34,7 +46,6 @@ const AudioProcessor = () => {
   // 文件上传处理
   const handleReferenceUpload = useCallback(async (file) => {
     try {
-      setError(null);
       setUploadProgress(prev => ({
         ...prev,
         reference: { percent: 0, uploading: true, speed: '', timeRemaining: '' }
@@ -65,21 +76,19 @@ const AudioProcessor = () => {
         ...prev,
         reference: { percent: 100, uploading: false, speed: '', timeRemaining: '' }
       }));
-      message.success('参考音频上传成功');
+      ErrorHandler.showSuccess('参考音频上传成功');
     } catch (error) {
       console.error('Reference upload failed:', error);
       setUploadProgress(prev => ({
         ...prev,
         reference: { percent: 0, uploading: false, speed: '', timeRemaining: '' }
       }));
-      setError(`参考音频上传失败: ${error.message}`);
-      message.error(`参考音频上传失败: ${error.message}`);
+      ErrorHandler.showError(error, '参考音频上传');
     }
   }, []);
 
   const handleTargetUpload = useCallback(async (file) => {
     try {
-      setError(null);
       setUploadProgress(prev => ({
         ...prev,
         target: { percent: 0, uploading: true, speed: '', timeRemaining: '' }
@@ -109,67 +118,33 @@ const AudioProcessor = () => {
         ...prev,
         target: { percent: 100, uploading: false, speed: '', timeRemaining: '' }
       }));
-      message.success('目标音频上传成功');
+      ErrorHandler.showSuccess('目标音频上传成功');
     } catch (error) {
       console.error('Target upload failed:', error);
       setUploadProgress(prev => ({
         ...prev,
         target: { percent: 0, uploading: false, speed: '', timeRemaining: '' }
       }));
-      setError(`目标音频上传失败: ${error.message}`);
-      message.error(`目标音频上传失败: ${error.message}`);
+      ErrorHandler.showError(error, '目标音频上传');
     }
   }, []);
 
   // 开始处理
   const handleStartProcessing = async () => {
     if (!referenceFile || !targetFile) {
-      message.error('请先上传参考音频和目标音频');
+      ErrorHandler.showSimpleError(new Error('请先上传参考音频和目标音频'), '开始处理');
       return;
     }
 
     try {
-      setProcessing(true);
-      setError(null);
-      setProgress(0);
-
-      // 创建处理任务
-      const job = await audioAPI.createJob({
+      await startProcessing({
         mode,
         ref_key: referenceFile.key,
         tgt_key: targetFile.key
       });
-
-      // 开始轮询任务状态
-      pollJobStatus(job.job_id);
-      
     } catch (error) {
-      setError('处理任务创建失败');
-      setProcessing(false);
-    }
-  };
-
-  // 轮询任务状态
-  const pollJobStatus = async (id) => {
-    try {
-      const status = await audioAPI.getJobStatus(id);
-      setJobStatus(status);
-      setProgress(status.progress || 0);
-
-      if (status.status === 'COMPLETED') {
-        setResult(status);
-        setProcessing(false);
-        message.success('音频处理完成！');
-      } else if (status.status === 'FAILED') {
-        setError(status.error || '处理失败');
-        setProcessing(false);
-      } else {
-        // 继续轮询
-        setTimeout(() => pollJobStatus(id), 2000);
-      }
-    } catch (error) {
-      setError('获取任务状态失败');
-      setProcessing(false);
+      // 错误已在Hook中处理
+      console.error('Start processing failed:', error);
     }
   };
 
@@ -184,11 +159,7 @@ const AudioProcessor = () => {
   const handleReset = () => {
     setReferenceFile(null);
     setTargetFile(null);
-    setProcessing(false);
-    setJobStatus(null);
-    setProgress(0);
-    setResult(null);
-    setError(null);
+    resetState();
   };
 
   const getStatusIcon = () => {
@@ -196,20 +167,6 @@ const AudioProcessor = () => {
     if (result) return <CheckCircleOutlined style={{ color: '#52c41a' }} />;
     if (error) return <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />;
     return null;
-  };
-
-  const getStatusText = () => {
-    if (processing) {
-      switch (jobStatus?.status) {
-        case 'ANALYZING': return '正在分析音频特征...';
-        case 'INVERTING': return '正在计算风格参数...';
-        case 'RENDERING': return '正在渲染音频...';
-        default: return '正在处理...';
-      }
-    }
-    if (result) return '处理完成';
-    if (error) return '处理失败';
-    return '等待开始';
   };
 
   return (
@@ -316,25 +273,39 @@ const AudioProcessor = () => {
         <div style={{ textAlign: 'center' }}>
           <Space size="large" direction="vertical" style={{ width: '100%' }}>
             <div>
-              <Button
-                type="primary"
-                size="large"
-                onClick={handleStartProcessing}
-                disabled={!referenceFile || !targetFile || processing}
-                loading={processing}
-                style={{ minWidth: 120 }}
-              >
-                {processing ? '处理中...' : '开始处理'}
-              </Button>
-              
-              {(result || error) && (
+              <Space>
                 <Button
-                  style={{ marginLeft: 16 }}
-                  onClick={handleReset}
+                  type="primary"
+                  size="large"
+                  onClick={handleStartProcessing}
+                  disabled={!referenceFile || !targetFile || processing}
+                  loading={processing}
+                  style={{ minWidth: 120 }}
                 >
-                  重新开始
+                  {processing ? '处理中...' : '开始处理'}
                 </Button>
-              )}
+
+                {canCancel && (
+                  <Button
+                    danger
+                    size="large"
+                    onClick={cancelProcessing}
+                    icon={<StopOutlined />}
+                    style={{ minWidth: 100 }}
+                  >
+                    取消
+                  </Button>
+                )}
+
+                {(result || error) && !processing && (
+                  <Button
+                    size="large"
+                    onClick={handleReset}
+                  >
+                    重新开始
+                  </Button>
+                )}
+              </Space>
             </div>
 
             {/* 状态显示 */}
@@ -342,18 +313,28 @@ const AudioProcessor = () => {
               <div>
                 <Space align="center">
                   {getStatusIcon()}
-                  <Text>{getStatusText()}</Text>
+                  <Text>{getStatusMessage()}</Text>
                 </Space>
-                
+
                 {processing && (
-                  <Progress 
-                    percent={progress} 
-                    style={{ marginTop: 16, maxWidth: 400 }}
-                    strokeColor={{
-                      '0%': '#108ee9',
-                      '100%': '#87d068',
-                    }}
-                  />
+                  <div style={{ marginTop: 16 }}>
+                    <Progress
+                      percent={progress}
+                      style={{ maxWidth: 400 }}
+                      strokeColor={{
+                        '0%': '#3CE6BE',
+                        '100%': '#46BEAA',
+                      }}
+                      trailColor="rgba(70, 190, 170, 0.3)"
+                      showInfo={true}
+                      format={(percent) => `${percent}%`}
+                    />
+                    {jobStatus?.estimated_time && (
+                      <Text style={{ fontSize: '12px', color: '#B4FFF0', marginTop: 8, display: 'block' }}>
+                        预计剩余时间: {jobStatus.estimated_time}
+                      </Text>
+                    )}
+                  </div>
                 )}
               </div>
             )}
@@ -396,7 +377,7 @@ const AudioProcessor = () => {
                 type="error"
                 showIcon
                 closable
-                onClose={() => setError(null)}
+                onClose={() => resetState()}
                 style={{ maxWidth: 600 }}
               />
             )}

@@ -5,10 +5,12 @@ import os
 import tempfile
 from typing import Dict, Any, Optional
 import asyncio
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 from src.services.base import BaseService, AudioProcessorInterface
 from src.core.exceptions import AudioProcessingError, FileError, ErrorCode
+from src.utils.memory_optimizer import memory_efficient, get_memory_usage
 
 
 class AudioService(BaseService, AudioProcessorInterface):
@@ -18,13 +20,17 @@ class AudioService(BaseService, AudioProcessorInterface):
         super().__init__()
         self.executor = ThreadPoolExecutor(max_workers=self.config.worker_concurrency)
     
+    @memory_efficient(max_memory_mb=512.0)
     async def analyze_features(self, file_path: str) -> Dict[str, Any]:
-        """分析音频特征"""
+        """分析音频特征（内存优化版本）"""
         if not os.path.exists(file_path):
             raise AudioProcessingError(
                 message=f"Audio file not found: {file_path}",
                 code=ErrorCode.FILE_NOT_FOUND
             )
+
+        start_time = time.time()
+        initial_memory = get_memory_usage()
 
         try:
             # 在线程池中执行CPU密集型任务
@@ -34,10 +40,18 @@ class AudioService(BaseService, AudioProcessorInterface):
                 self._analyze_features_sync,
                 file_path
             )
-            
-            self.logger.info(f"Audio analysis completed for {file_path}")
+
+            # 性能监控
+            duration = time.time() - start_time
+            final_memory = get_memory_usage()
+            memory_used = final_memory.get('process_rss_mb', 0) - initial_memory.get('process_rss_mb', 0)
+
+            self.logger.info(
+                f"Audio analysis completed for {file_path} - "
+                f"Duration: {duration:.2f}s, Memory used: {memory_used:.1f}MB"
+            )
             return features
-            
+
         except Exception as e:
             self._handle_error(
                 e,
@@ -45,12 +59,20 @@ class AudioService(BaseService, AudioProcessorInterface):
             )
     
     def _analyze_features_sync(self, file_path: str) -> Dict[str, Any]:
-        """同步音频特征分析"""
+        """同步音频特征分析（内存优化版本）"""
         try:
             # 导入音频分析模块
             from worker.app.audio_analysis import analyzer
-            return analyzer.analyze_features(file_path)
-            
+
+            # 检查文件大小，大文件使用流式处理
+            file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
+
+            if file_size_mb > 50:  # 大于50MB使用流式处理
+                self.logger.info(f"Large file detected ({file_size_mb:.1f}MB), using streaming analysis")
+                return analyzer.analyze_features_streaming(file_path)
+            else:
+                return analyzer.analyze_features(file_path)
+
         except ImportError:
             # 如果无法导入，返回默认特征
             self.logger.warning("Audio analysis module not available, using defaults")
@@ -59,7 +81,7 @@ class AudioService(BaseService, AudioProcessorInterface):
             raise AudioProcessingError(
                 message=f"Feature analysis failed: {str(e)}",
                 code=ErrorCode.AUDIO_ANALYSIS_FAILED,
-                detail={"file_path": file_path}
+                detail={"file_path": file_path, "file_size_mb": file_size_mb if 'file_size_mb' in locals() else 0}
             )
     
     async def invert_parameters(

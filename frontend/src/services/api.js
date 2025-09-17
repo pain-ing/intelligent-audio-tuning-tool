@@ -19,7 +19,7 @@ const formatTime = (seconds) => {
 // 创建 axios 实例
 const api = axios.create({
   baseURL: process.env.REACT_APP_API_URL || 'http://localhost:8080',
-  timeout: 30000,
+  timeout: 60000, // 增加超时时间到60秒
   headers: {
     'Content-Type': 'application/json',
   },
@@ -28,6 +28,9 @@ const api = axios.create({
 // 请求拦截器
 api.interceptors.request.use(
   (config) => {
+    // 添加请求时间戳用于性能监控
+    config.metadata = { startTime: new Date() };
+
     // 可以在这里添加认证 token
     // const token = localStorage.getItem('token');
     // if (token) {
@@ -43,35 +46,57 @@ api.interceptors.request.use(
 // 响应拦截器
 api.interceptors.response.use(
   (response) => {
+    // 计算请求时间
+    if (response.config.metadata) {
+      const endTime = new Date();
+      const duration = endTime - response.config.metadata.startTime;
+      console.log(`API请求耗时: ${duration}ms - ${response.config.url}`);
+    }
     return response.data;
   },
   (error) => {
-    if (error.response) {
+    // 增强错误处理
+    if (error.code === 'ECONNABORTED') {
+      error.message = '请求超时，请检查网络连接';
+    } else if (error.response) {
       // 服务器返回错误状态码
       const { status, data } = error.response;
-      
+
       switch (status) {
         case 401:
-          // 未授权，可能需要重新登录
-          console.error('Unauthorized access');
+          error.message = '认证失败，请重新登录';
           break;
         case 403:
-          // 禁止访问
-          console.error('Forbidden access');
+          error.message = '权限不足，无法访问该资源';
           break;
         case 404:
-          // 资源不存在
-          console.error('Resource not found');
+          error.message = '请求的资源不存在';
+          break;
+        case 413:
+          error.message = '文件过大，请选择小于100MB的文件';
+          break;
+        case 415:
+          error.message = '不支持的文件格式，请使用WAV、MP3或FLAC格式';
+          break;
+        case 422:
+          error.message = data?.detail || '请求参数错误';
+          break;
+        case 429:
+          error.message = '请求过于频繁，请稍后再试';
           break;
         case 500:
-          // 服务器内部错误
-          console.error('Internal server error');
+          error.message = '服务器内部错误，请稍后重试';
+          break;
+        case 502:
+        case 503:
+        case 504:
+          error.message = '服务暂时不可用，请稍后重试';
           break;
         default:
-          console.error('API Error:', data?.message || error.message);
+          error.message = data?.message || data?.detail || '请求失败';
       }
-      
-      return Promise.reject(data || error.message);
+
+      return Promise.reject(error);
     } else if (error.request) {
       // 网络错误
       console.error('Network error:', error.message);
@@ -100,6 +125,10 @@ export const audioAPI = {
   // 获取任务状态
   getJobStatus: (jobId) =>
     api.get(`/jobs/${jobId}`),
+
+  // 取消任务
+  cancelJob: (jobId) =>
+    api.post(`/jobs/${jobId}/cancel`),
 
   // 列表（keyset 分页）
   listJobs: ({ user_id, status, limit = 20, cursor, sort_by = 'created_at', order = 'desc', created_after, created_before } = {}) =>

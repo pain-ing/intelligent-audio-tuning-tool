@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
-import { Layout, Typography, Tabs } from 'antd';
+import React, { useState, Suspense, lazy } from 'react';
+import { Layout, Typography, Tabs, Spin } from 'antd';
 import { SoundOutlined } from '@ant-design/icons';
-import AudioProcessor from './components/AudioProcessor';
-import PresetManager from './components/PresetManager';
-import JobsPanel from './components/JobsPanel';
 import './App.css';
+
+// 懒加载组件以减少初始包大小
+const AudioProcessor = lazy(() => import('./components/AudioProcessor'));
+const PresetManager = lazy(() => import('./components/PresetManager'));
+const JobsPanel = lazy(() => import('./components/JobsPanel'));
 
 const { Header, Content } = Layout;
 const { Title } = Typography;
@@ -38,15 +40,19 @@ function App() {
             className="main-tabs"
           >
             <TabPane tab="音频处理" key="processor">
-              <AudioProcessor />
+              <Suspense fallback={<div style={{ textAlign: 'center', padding: '50px' }}><Spin size="large" tip="加载中..." /></div>}>
+                <AudioProcessor />
+              </Suspense>
             </TabPane>
             <TabPane tab="预设管理" key="presets">
-              <PresetManager />
+              <Suspense fallback={<div style={{ textAlign: 'center', padding: '50px' }}><Spin size="large" tip="加载中..." /></div>}>
+                <PresetManager />
+              </Suspense>
             </TabPane>
             <TabPane tab="任务列表" key="jobs">
-              <React.Suspense fallback={null}>
+              <Suspense fallback={<div style={{ textAlign: 'center', padding: '50px' }}><Spin size="large" tip="加载中..." /></div>}>
                 <JobsPanel />
-              </React.Suspense>
+              </Suspense>
             </TabPane>
           </Tabs>
         </div>
